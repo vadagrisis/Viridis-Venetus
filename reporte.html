@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Viridis Venetus — Reporte Diario</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy: #0a1628; --blue: #0061a8; --blue-light: #1a7fc4;
+            --accent: #00c896; --accent-dim: rgba(0,200,150,0.1);
+            --white: #ffffff; --gray: #8a9bb0; --surface: #0f1e35;
+            --card: #162033; --border: rgba(255,255,255,0.08);
+            --red: #ff5b5b; --green: #00c896;
+        }
+        body { background-color: var(--navy); min-height: 100vh; font-family: 'DM Sans', sans-serif; color: var(--white); display: flex; flex-direction: column; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 22px 48px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { width: 40px; height: 40px; background: var(--blue); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .brand-name { font-family: 'Playfair Display', serif; font-size: 22px; }
+        .back-link { color: var(--gray); font-size: 14px; text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--white); }
+        .main { flex: 1; padding: 40px 48px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+        /* Header */
+        .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 36px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.05s ease forwards; }
+        .page-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-dim); color: var(--accent); font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: 20px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .page-header h1 { font-family: 'Playfair Display', serif; font-size: 32px; }
+        .page-header p { color: var(--gray); font-size: 14px; margin-top: 4px; }
+        .rol-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,97,168,0.2); color: var(--blue-light); font-size: 12px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(0,97,168,0.3); }
+
+        /* Filtros */
+        .filters-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 32px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.15s ease forwards; }
+        .filters-row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-field { display: flex; flex-direction: column; gap: 8px; }
+        .filter-field label { font-size: 12px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; }
+        .filter-field input[type="date"] { padding: 11px 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+        .filter-field input[type="date"]:focus { border-color: var(--accent); }
+        .filter-field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+        .btn-buscar { padding: 11px 28px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #00a87a); color: var(--navy); font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.2s, transform 0.15s; }
+        .btn-buscar:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* Tabla */
+        .table-wrapper { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.25s ease forwards; }
+        .table-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; border-bottom: 1px solid var(--border); }
+        .table-title { font-size: 15px; font-weight: 600; }
+        .table-actions { display: flex; gap: 10px; align-items: center; }
+        .table-count { font-size: 13px; color: var(--gray); }
+        .btn-export { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--gray); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+        .btn-export:hover { border-color: var(--green); color: var(--green); }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: rgba(255,255,255,0.02); }
+        thead th { padding: 14px 20px; text-align: left; font-size: 11px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        thead th:first-child { padding-left: 28px; }
+        tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.025); }
+        tbody td { padding: 15px 20px; font-size: 14px; vertical-align: middle; }
+        tbody td:first-child { padding-left: 28px; }
+        .tipo-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; }
+        .tipo-entrada { background: rgba(0,200,150,0.12); color: var(--green); }
+        .tipo-salida  { background: rgba(255,91,91,0.12);  color: var(--red); }
+        .tipo-merma   { background: rgba(245,200,66,0.12); color: #f5c842; }
+        .state-row td { text-align: center; padding: 60px 20px; color: var(--gray); font-size: 15px; }
+        .state-icon { font-size: 36px; display: block; margin-bottom: 12px; }
+
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 900px) { .main { padding: 32px 20px; } .topbar { padding: 18px 20px; } .page-header { flex-direction: column; align-items: flex-start; gap: 16px; } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon"><img style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" src="data:image/jpeg;base64,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" alt="logo"></div>
+            <span class="brand-name">Viridis Venetus</span>
+        </div>
+        <a class="back-link" href="menu.html">← Volver al menú</a>
+    </header>
+
+    <main class="main">
+        <div class="page-header">
+            <div>
+                <div class="page-badge">📊 Reportes</div>
+                <h1>Reporte Diario</h1>
+                <p>Movimientos de entrada y salida de almacén</p>
+            </div>
+            <div class="rol-badge" id="rolBadge">👤 —</div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-card">
+            <div class="filters-row">
+                <div class="filter-field">
+                    <label>Fecha inicio</label>
+                    <input type="date" id="fechaInicio">
+                </div>
+                <div class="filter-field">
+                    <label>Fecha fin</label>
+                    <input type="date" id="fechaFin">
+                </div>
+                <div class="filter-field">
+                    <label>Almacén</label>
+                    <select id="filterAlmacen" style="padding:11px 16px;background:#162033;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#ffffff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;">
+                        <option value="" style="background:#162033;color:#ffffff;">Todos</option>
+                    </select>
+                </div>
+                <button class="btn-buscar" onclick="loadReporte()">Consultar</button>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="table-wrapper">
+            <div class="table-header">
+                <span class="table-title">Movimientos</span>
+                <div class="table-actions">
+                    <span class="table-count" id="tableCount">—</span>
+                    <button class="btn-export" onclick="exportExcel()">⬇ Exportar Excel</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Unidad</th>
+                        <th>Tipo</th>
+                        <th>Almacén</th>
+                        <th>Registrado por</th>
+                        <th>Fecha y hora</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr class="state-row"><td colspan="8"><span class="state-icon">📋</span>Selecciona un rango de fechas y presiona Consultar.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const API   = 'https://api-production-91c0.up.railway.app';
+        const token = localStorage.getItem('viridis-venetus_token');
+        const rol   = localStorage.getItem('viridis-venetus_rol') || '—';
+        if (!token) location.href = 'login.html';
+
+        const authHeaders = { 'Authorization': `Bearer ${token}` };
+
+        // Mostrar rol
+        document.getElementById('rolBadge').textContent = `👤 ${rol}`;
+
+        // Cargar almacenes automáticamente desde la API
+        async function loadAlmacenes() {
+            try {
+                const res  = await fetch(`${API}/almacenes`, { headers: authHeaders });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const sel  = document.getElementById('filterAlmacen');
+                sel.innerHTML = '<option value="" style="background:#162033;color:#ffffff;">Todos</option>' +
+                    data.map(a => `<option value="${a.nombre}" style="background:#162033;color:#ffffff;">${a.nombre}</option>`).join('');
+            } catch {
+                // Si falla, dejar solo "Todos" y mostrar aviso sutil en el select
+                const sel = document.getElementById('filterAlmacen');
+                sel.title = 'No se pudieron cargar los almacenes. Se mostrará "Todos" por defecto.';
+            }
+        }
+
+        // Fechas por defecto: hoy
+        const hoy = new Date().toISOString().slice(0, 10);
+        document.getElementById('fechaInicio').value = hoy;
+        document.getElementById('fechaFin').value    = hoy;
+
+        loadAlmacenes();
+
+        let allMovs = [];
+
+        async function loadReporte() {
+            const fechaInicio   = document.getElementById('fechaInicio').value;
+            const fechaFin      = document.getElementById('fechaFin').value;
+            const filterAlmacen = document.getElementById('filterAlmacen').value;
+            const tbody         = document.getElementById('tableBody');
+
+            // Validación de fechas antes de consultar
+            if (!fechaInicio || !fechaFin) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">📅</span>Por favor selecciona una fecha de inicio y una fecha fin.</td></tr>`;
+                document.getElementById('tableCount').textContent = '—';
+                return;
+            }
+            if (fechaInicio > fechaFin) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⚠️</span>La fecha de inicio no puede ser mayor que la fecha fin.</td></tr>`;
+                document.getElementById('tableCount').textContent = '—';
+                return;
+            }
+
+            tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⏳</span>Cargando movimientos...</td></tr>`;
+            document.getElementById('tableCount').textContent = '—';
+
+            try {
+                // Enviar parámetros a la API como query params
+                const params = new URLSearchParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
+                if (filterAlmacen) params.append('almacen', filterAlmacen);
+
+                const res = await fetch(`${API}/reporte?${params.toString()}`, { headers: authHeaders });
+                if (res.status === 401) {
+                    tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">🔒</span>Sesión expirada. <a href="login.html" style="color:var(--accent)">Inicia sesión de nuevo</a></td></tr>`;
+                    return;
+                }
+                let data = await res.json();
+
+                // Filtrado local como respaldo, normalizando formato de fecha
+                const normalize = f => f ? f.slice(0, 10) : '';
+                if (fechaInicio) data = data.filter(m => normalize(m.fecha) >= fechaInicio);
+                if (fechaFin)    data = data.filter(m => normalize(m.fecha) <= fechaFin);
+                if (filterAlmacen) data = data.filter(m => m.almacen === filterAlmacen);
+
+                allMovs = data;
+                renderTable(data);
+            } catch(e) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⚠️</span>Error de conexión: ${e.message}</td></tr>`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            document.getElementById('tableCount').textContent = `${data.length} movimiento${data.length !== 1 ? 's' : ''}`;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">📭</span>No hay movimientos en ese período.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(m => `
+                <tr>
+                    <td style="color:var(--gray);font-size:12px">#${m.id}</td>
+                    <td style="font-weight:500">${m.producto}</td>
+                    <td>${m.cantidad % 1 === 0 ? m.cantidad : parseFloat(m.cantidad).toFixed(2)}</td>
+                    <td style="color:var(--gray)">${m.unidad}</td>
+                    <td>
+                        <span class="tipo-badge tipo-${m.tipo.toLowerCase()}">
+                            ${m.tipo === 'ENTRADA' ? '⬆' : m.tipo === 'MERMA' ? '⚠' : '⬇'} ${m.tipo}
+                        </span>
+                    </td>
+                    <td style="color:var(--gray)">${m.almacen || '—'}</td>
+                    <td style="color:var(--gray)">${m.usuario || '—'}</td>
+                    <td style="color:var(--gray);font-size:13px">${m.fecha}</td>
+                </tr>
+            `).join('');
+        }
+
+        function exportExcel() {
+            if (!allMovs.length) {
+                alert('No hay datos para exportar. Consulta primero un período.');
+                return;
+            }
+
+            // ── Hoja 1: Detalle de movimientos ─────────────────────
+            const rowsDetalle = allMovs.map(m => ({
+                'ID':              m.id,
+                'Producto':        m.producto,
+                'Cantidad':        m.cantidad,
+                'Unidad':          m.unidad,
+                'Tipo':            m.tipo,
+                'Almacén':         m.almacen  || '—',
+                'Registrado por':  m.usuario  || '—',
+                'Fecha':           m.fecha
+            }));
+
+            const wsDetalle = XLSX.utils.json_to_sheet(rowsDetalle);
+            wsDetalle['!cols'] = [
+                { wch: 8  },  // ID
+                { wch: 30 },  // Producto
+                { wch: 12 },  // Cantidad
+                { wch: 12 },  // Unidad
+                { wch: 10 },  // Tipo
+                { wch: 16 },  // Almacén
+                { wch: 18 },  // Registrado por
+                { wch: 22 },  // Fecha
+            ];
+
+            // ── Hoja 2: Resumen por producto ────────────────────────
+            // Agrupar movimientos por producto y calcular entradas, salidas y stock neto
+            const resumenMap = {};
+            allMovs.forEach(m => {
+                const key = m.producto;
+                if (!resumenMap[key]) {
+                    resumenMap[key] = { producto: key, unidad: m.unidad, stockEntrada: 0, stockSalida: 0 };
+                }
+                const cantidad = parseFloat(m.cantidad) || 0;
+                if (m.tipo === 'ENTRADA') {
+                    resumenMap[key].stockEntrada += cantidad;
+                } else if (m.tipo === 'SALIDA' || m.tipo === 'MERMA') {
+                    resumenMap[key].stockSalida += cantidad;
+                }
+            });
+
+            const rowsResumen = Object.values(resumenMap).map(r => ({
+                'Producto':      r.producto,
+                'Unidad':        r.unidad,
+                'Stock Entrada': parseFloat(r.stockEntrada.toFixed(2)),
+                'Stock Salida':  parseFloat(r.stockSalida.toFixed(2)),
+                'Stock Actual':  parseFloat((r.stockEntrada - r.stockSalida).toFixed(2))
+            }));
+
+            const wsResumen = XLSX.utils.json_to_sheet(rowsResumen);
+            wsResumen['!cols'] = [
+                { wch: 30 },  // Producto
+                { wch: 12 },  // Unidad
+                { wch: 16 },  // Stock Entrada
+                { wch: 16 },  // Stock Salida
+                { wch: 14 },  // Stock Actual
+            ];
+
+            // ── Construir libro con dos hojas ───────────────────────
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, wsDetalle, 'Movimientos');
+            XLSX.utils.book_append_sheet(wb, wsResumen,  'Resumen por Producto');
+
+            // Nombre del archivo con fechas del filtro
+            const fi = document.getElementById('fechaInicio').value;
+            const ff = document.getElementById('fechaFin').value;
+            XLSX.writeFile(wb, `reporte_${fi}_${ff}.xlsx`);
+        }
+
+        function logout() {
+            localStorage.removeItem('viridis-venetus_token');
+            localStorage.removeItem('viridis-venetus_username');
+            localStorage.removeItem('viridis-venetus_rol');
+            location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
