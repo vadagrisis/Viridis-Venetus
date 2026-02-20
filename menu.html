@@ -85,7 +85,13 @@
         const username = localStorage.getItem('viridis-venetus_username');
         const rol      = localStorage.getItem('viridis-venetus_rol');
 
-        if (!token) location.href = 'login.html';
+        if (!token) { location.replace("login.html"); }
+        // Verificar sesión al volver con botón de retroceso
+        window.addEventListener("pageshow", function(e) {
+            if (!localStorage.getItem("viridis-venetus_token")) {
+                location.replace("login.html");
+            }
+        });
 
         // Mostrar datos del usuario
         document.getElementById('displayName').textContent = username || '—';
@@ -96,7 +102,7 @@
             localStorage.removeItem('viridis-venetus_token');
             localStorage.removeItem('viridis-venetus_username');
             localStorage.removeItem('viridis-venetus_rol');
-            location.href = 'login.html';
+            location.replace('login.html');
         }
     </script>
 </body>
