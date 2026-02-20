@@ -127,12 +127,11 @@
                         <th>Unidad</th>
                         <th>Tipo</th>
                         <th>Almacén</th>
-                        <th>Registrado por</th>
                         <th>Fecha y hora</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr class="state-row"><td colspan="8"><span class="state-icon">📋</span>Selecciona un rango de fechas y presiona Consultar.</td></tr>
+                    <tr class="state-row"><td colspan="6"><span class="state-icon">📋</span>Selecciona un rango de fechas y presiona Consultar.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -142,7 +141,13 @@
         const API   = 'https://api-production-91c0.up.railway.app';
         const token = localStorage.getItem('viridis-venetus_token');
         const rol   = localStorage.getItem('viridis-venetus_rol') || '—';
-        if (!token) location.href = 'login.html';
+        if (!token) { location.replace("login.html"); }
+        // Verificar sesión al volver con botón de retroceso
+        window.addEventListener("pageshow", function(e) {
+            if (!localStorage.getItem("viridis-venetus_token")) {
+                location.replace("login.html");
+            }
+        });
 
         const authHeaders = { 'Authorization': `Bearer ${token}` };
 
@@ -153,15 +158,12 @@
         async function loadAlmacenes() {
             try {
                 const res  = await fetch(`${API}/almacenes`, { headers: authHeaders });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 const sel  = document.getElementById('filterAlmacen');
                 sel.innerHTML = '<option value="" style="background:#162033;color:#ffffff;">Todos</option>' +
                     data.map(a => `<option value="${a.nombre}" style="background:#162033;color:#ffffff;">${a.nombre}</option>`).join('');
             } catch {
-                // Si falla, dejar solo "Todos" y mostrar aviso sutil en el select
-                const sel = document.getElementById('filterAlmacen');
-                sel.title = 'No se pudieron cargar los almacenes. Se mostrará "Todos" por defecto.';
+                // Si falla silenciosamente, queda solo "Todos"
             }
         }
 
@@ -180,43 +182,28 @@
             const filterAlmacen = document.getElementById('filterAlmacen').value;
             const tbody         = document.getElementById('tableBody');
 
-            // Validación de fechas antes de consultar
-            if (!fechaInicio || !fechaFin) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">📅</span>Por favor selecciona una fecha de inicio y una fecha fin.</td></tr>`;
-                document.getElementById('tableCount').textContent = '—';
-                return;
-            }
-            if (fechaInicio > fechaFin) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⚠️</span>La fecha de inicio no puede ser mayor que la fecha fin.</td></tr>`;
-                document.getElementById('tableCount').textContent = '—';
-                return;
-            }
-
-            tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⏳</span>Cargando movimientos...</td></tr>`;
+            tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">⏳</span>Cargando movimientos...</td></tr>`;
             document.getElementById('tableCount').textContent = '—';
 
             try {
-                // Enviar parámetros a la API como query params
-                const params = new URLSearchParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
-                if (filterAlmacen) params.append('almacen', filterAlmacen);
-
-                const res = await fetch(`${API}/reporte?${params.toString()}`, { headers: authHeaders });
+                const res  = await fetch(`${API}/reporte`, { headers: authHeaders });
                 if (res.status === 401) {
-                    tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">🔒</span>Sesión expirada. <a href="login.html" style="color:var(--accent)">Inicia sesión de nuevo</a></td></tr>`;
+                    tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">🔒</span>Sesión expirada. <a href="login.html" style="color:var(--accent)">Inicia sesión de nuevo</a></td></tr>`;
                     return;
                 }
                 let data = await res.json();
 
-                // Filtrado local como respaldo, normalizando formato de fecha
-                const normalize = f => f ? f.slice(0, 10) : '';
-                if (fechaInicio) data = data.filter(m => normalize(m.fecha) >= fechaInicio);
-                if (fechaFin)    data = data.filter(m => normalize(m.fecha) <= fechaFin);
+                // Filtrar por fecha
+                if (fechaInicio) data = data.filter(m => m.fecha >= fechaInicio);
+                if (fechaFin)    data = data.filter(m => m.fecha <= fechaFin + ' 23:59:59');
+
+                // Filtrar por almacén
                 if (filterAlmacen) data = data.filter(m => m.almacen === filterAlmacen);
 
                 allMovs = data;
                 renderTable(data);
             } catch(e) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⚠️</span>Error de conexión: ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>Error: ${e.message}</td></tr>`;
             }
         }
 
@@ -225,7 +212,7 @@
             document.getElementById('tableCount').textContent = `${data.length} movimiento${data.length !== 1 ? 's' : ''}`;
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">📭</span>No hay movimientos en ese período.</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">📭</span>No hay movimientos en ese período.</td></tr>`;
                 return;
             }
 
@@ -241,7 +228,6 @@
                         </span>
                     </td>
                     <td style="color:var(--gray)">${m.almacen || '—'}</td>
-                    <td style="color:var(--gray)">${m.usuario || '—'}</td>
                     <td style="color:var(--gray);font-size:13px">${m.fecha}</td>
                 </tr>
             `).join('');
@@ -253,79 +239,47 @@
                 return;
             }
 
-            // ── Hoja 1: Detalle de movimientos ─────────────────────
-            const rowsDetalle = allMovs.map(m => ({
-                'ID':              m.id,
-                'Producto':        m.producto,
-                'Cantidad':        m.cantidad,
-                'Unidad':          m.unidad,
-                'Tipo':            m.tipo,
-                'Almacén':         m.almacen  || '—',
-                'Registrado por':  m.usuario  || '—',
-                'Fecha':           m.fecha
+            // Construir datos con encabezados legibles
+            const rows = allMovs.map(m => ({
+                'ID':        m.id,
+                'Producto':  m.producto,
+                'Cantidad':  m.cantidad,
+                'Unidad':    m.unidad,
+                'Tipo':      m.tipo,
+                'Almacén':   m.almacen || '—',
+                'Fecha':     m.fecha
             }));
 
-            const wsDetalle = XLSX.utils.json_to_sheet(rowsDetalle);
-            wsDetalle['!cols'] = [
+            // Crear hoja y libro
+            const ws = XLSX.utils.json_to_sheet(rows);
+
+            // Ancho de columnas
+            ws['!cols'] = [
                 { wch: 8  },  // ID
                 { wch: 30 },  // Producto
                 { wch: 12 },  // Cantidad
                 { wch: 12 },  // Unidad
                 { wch: 10 },  // Tipo
                 { wch: 16 },  // Almacén
-                { wch: 18 },  // Registrado por
                 { wch: 22 },  // Fecha
             ];
 
-            // ── Hoja 2: Resumen por producto ────────────────────────
-            // Agrupar movimientos por producto y calcular entradas, salidas y stock neto
-            const resumenMap = {};
-            allMovs.forEach(m => {
-                const key = m.producto;
-                if (!resumenMap[key]) {
-                    resumenMap[key] = { producto: key, unidad: m.unidad, stockEntrada: 0, stockSalida: 0 };
-                }
-                const cantidad = parseFloat(m.cantidad) || 0;
-                if (m.tipo === 'ENTRADA') {
-                    resumenMap[key].stockEntrada += cantidad;
-                } else if (m.tipo === 'SALIDA' || m.tipo === 'MERMA') {
-                    resumenMap[key].stockSalida += cantidad;
-                }
-            });
-
-            const rowsResumen = Object.values(resumenMap).map(r => ({
-                'Producto':      r.producto,
-                'Unidad':        r.unidad,
-                'Stock Entrada': parseFloat(r.stockEntrada.toFixed(2)),
-                'Stock Salida':  parseFloat(r.stockSalida.toFixed(2)),
-                'Stock Actual':  parseFloat((r.stockEntrada - r.stockSalida).toFixed(2))
-            }));
-
-            const wsResumen = XLSX.utils.json_to_sheet(rowsResumen);
-            wsResumen['!cols'] = [
-                { wch: 30 },  // Producto
-                { wch: 12 },  // Unidad
-                { wch: 16 },  // Stock Entrada
-                { wch: 16 },  // Stock Salida
-                { wch: 14 },  // Stock Actual
-            ];
-
-            // ── Construir libro con dos hojas ───────────────────────
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, wsDetalle, 'Movimientos');
-            XLSX.utils.book_append_sheet(wb, wsResumen,  'Resumen por Producto');
+            XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
 
             // Nombre del archivo con fechas del filtro
             const fi = document.getElementById('fechaInicio').value;
             const ff = document.getElementById('fechaFin').value;
-            XLSX.writeFile(wb, `reporte_${fi}_${ff}.xlsx`);
+            const filename = `reporte_${fi}_${ff}.xlsx`;
+
+            XLSX.writeFile(wb, filename);
         }
 
         function logout() {
             localStorage.removeItem('viridis-venetus_token');
             localStorage.removeItem('viridis-venetus_username');
             localStorage.removeItem('viridis-venetus_rol');
-            location.href = 'login.html';
+            location.replace('login.html');
         }
     </script>
 </body>
