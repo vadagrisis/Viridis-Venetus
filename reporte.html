@@ -116,6 +116,11 @@
                 <div class="table-actions">
                     <span class="table-count" id="tableCount">—</span>
                     <button class="btn-export" onclick="exportExcel()">⬇ Exportar Excel</button>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <select id="selectMes" style="padding:8px 12px;background:#162033;border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#ffffff;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;">
+                        </select>
+                        <button class="btn-export" onclick="exportMensual()" style="border-color:#f5c842;color:#f5c842;">📅 Reporte Mensual</button>
+                    </div>
                 </div>
             </div>
             <table>
@@ -167,11 +172,70 @@
             }
         }
 
+        // Poblar selector de meses (últimos 12 meses)
+        function poblarMeses() {
+            const sel    = document.getElementById('selectMes');
+            const ahora  = new Date();
+            const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                            'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            sel.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+                const valor = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                const texto = `${meses[d.getMonth()]} ${d.getFullYear()}`;
+                sel.innerHTML += `<option value="${valor}" style="background:#162033;color:#fff;">${texto}</option>`;
+            }
+        }
+
+        async function exportMensual() {
+            const mes      = document.getElementById('selectMes').value;
+            const [anio, m] = mes.split('-');
+            const inicio   = `${mes}-01`;
+            const fin      = new Date(anio, m, 0).toISOString().slice(0,10); // último día del mes
+
+            try {
+                const res  = await fetch(`${API}/reporte?fecha_inicio=${inicio}&fecha_fin=${fin}`, { headers: authHeaders });
+                const data = await res.json();
+
+                if (!data.length) {
+                    alert('No hay movimientos en ese mes.');
+                    return;
+                }
+
+                const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                const nombreMes = `${meses[parseInt(m)-1]}_${anio}`;
+
+                const rows = data.map(d => ({
+                    'ID':       d.id,
+                    'Producto': d.producto,
+                    'Cantidad': d.cantidad,
+                    'Unidad':   d.unidad,
+                    'Tipo':     d.tipo,
+                    'Almacén':  d.almacen || '—',
+                    'Fecha':    d.fecha
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(rows);
+                ws['!cols'] = [
+                    { wch: 8 }, { wch: 30 }, { wch: 12 },
+                    { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 22 }
+                ];
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, nombreMes);
+                XLSX.writeFile(wb, `reporte_${nombreMes}.xlsx`);
+
+            } catch {
+                alert('Error al descargar el reporte mensual.');
+            }
+        }
+
         // Fechas por defecto: hoy
         const hoy = new Date().toISOString().slice(0, 10);
         document.getElementById('fechaInicio').value = hoy;
         document.getElementById('fechaFin').value    = hoy;
 
+        poblarMeses();
         loadAlmacenes();
 
         let allMovs = [];
