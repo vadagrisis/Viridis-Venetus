@@ -94,18 +94,55 @@
     </main>
 
     <script>
-        // Guard: redirigir si no hay sesión
+        const API      = 'https://api-production-91c0.up.railway.app';
         const token    = localStorage.getItem('viridis-venetus_token');
         const username = localStorage.getItem('viridis-venetus_username');
         const rol      = localStorage.getItem('viridis-venetus_rol');
 
-        if (!token) { location.replace("login.html"); }
-        // Verificar sesión al volver con botón de retroceso
-        window.addEventListener("pageshow", function(e) {
-            if (!localStorage.getItem("viridis-venetus_token")) {
+        if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+            localStorage.clear();
+            location.replace("login.html");
+        }
+
+        window.addEventListener("pageshow", function() {
+            const t = localStorage.getItem("viridis-venetus_token");
+            if (!t || t === 'undefined' || t === 'null' || t.length < 20) {
+                localStorage.clear();
                 location.replace("login.html");
             }
         });
+
+        // Validar token contra la API al cargar
+        async function validarToken() {
+            try {
+                const res = await fetch(`${API}/almacenes`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    // Token expirado — intentar refresh
+                    const rt = localStorage.getItem('viridis-venetus_refresh_token');
+                    if (rt) {
+                        const r2 = await fetch(`${API}/refresh`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${rt}` }
+                        });
+                        if (r2.ok) {
+                            const d = await r2.json();
+                            localStorage.setItem('viridis-venetus_token', d.access_token);
+                            return; // Token renovado, todo bien
+                        }
+                    }
+                    // No se pudo renovar — limpiar y volver al login
+                    localStorage.clear();
+                    location.replace('login.html');
+                }
+            } catch (e) {
+                // Sin conexión — dejar pasar, el usuario podrá ver el menú offline
+            }
+        }
+
+        validarToken();
 
         // Mostrar datos del usuario
         document.getElementById('displayName').textContent = username || '—';
@@ -113,9 +150,7 @@
         document.getElementById('userInitial').textContent = username ? username[0].toUpperCase() : '?';
 
         function logout() {
-            localStorage.removeItem('viridis-venetus_token');
-            localStorage.removeItem('viridis-venetus_username');
-            localStorage.removeItem('viridis-venetus_rol');
+            localStorage.clear();
             location.replace('login.html');
         }
     </script>
