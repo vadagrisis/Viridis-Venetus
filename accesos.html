@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Viridis Venetus — Log de Accesos</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy: #0a1628; --blue: #0061a8; --blue-light: #1a7fc4;
+            --accent: #00c896; --white: #ffffff; --gray: #8a9bb0;
+            --surface: #0f1e35; --card: #162033; --border: rgba(255,255,255,0.08);
+            --red: #ff5b5b; --green: #00c896;
+        }
+        body { background-color: var(--navy); min-height: 100vh; font-family: 'DM Sans', sans-serif; color: var(--white); display: flex; flex-direction: column; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 22px 48px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { width: 40px; height: 40px; background: var(--blue); border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .brand-name { font-family: 'Playfair Display', serif; font-size: 22px; }
+        .back-link { color: var(--gray); font-size: 14px; text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--white); }
+        .main { flex: 1; padding: 40px 48px; max-width: 1100px; margin: 0 auto; width: 100%; }
+        .page-header { margin-bottom: 36px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.05s ease forwards; }
+        .page-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,97,168,0.15); color: var(--blue-light); font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: 20px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .page-header h1 { font-family: 'Playfair Display', serif; font-size: 32px; }
+        .page-header p { color: var(--gray); font-size: 14px; margin-top: 4px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.1s ease forwards; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; }
+        .stat-label { font-size: 11px; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 600; }
+        .stat-sub { font-size: 12px; color: var(--gray); margin-top: 4px; }
+        .table-wrapper { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.15s ease forwards; }
+        .table-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; border-bottom: 1px solid var(--border); }
+        .table-title { font-size: 15px; font-weight: 600; }
+        .table-count { font-size: 13px; color: var(--gray); }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: rgba(255,255,255,0.02); }
+        thead th { padding: 14px 20px; text-align: left; font-size: 11px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); }
+        thead th:first-child { padding-left: 28px; }
+        tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.025); }
+        tbody td { padding: 14px 20px; font-size: 14px; vertical-align: middle; }
+        tbody td:first-child { padding-left: 28px; }
+        .badge-ok  { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(0,200,150,0.12);color:var(--green); }
+        .badge-fail{ display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,91,91,0.12);color:var(--red); }
+        .state-row td { text-align: center; padding: 60px 20px; color: var(--gray); font-size: 15px; }
+        .state-icon { font-size: 36px; display: block; margin-bottom: 12px; }
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 900px) { .main { padding: 32px 20px; } .topbar { padding: 18px 20px; } .stat-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon"><img style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" src="data:image/jpeg;base64,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" alt="logo"></div>
+            <span class="brand-name">Viridis Venetus</span>
+        </div>
+        <a class="back-link" href="menu.html">← Volver al menú</a>
+    </header>
+
+    <main class="main">
+        <div class="page-header">
+            <div class="page-badge">🔐 Seguridad</div>
+            <h1>Log de Accesos</h1>
+            <p>Historial de inicios de sesión al sistema — últimos 200 registros</p>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-label">Accesos exitosos</div>
+                <div class="stat-value" id="statExitosos" style="color:var(--green)">—</div>
+                <div class="stat-sub">en el historial</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Intentos fallidos</div>
+                <div class="stat-value" id="statFallidos" style="color:var(--red)">—</div>
+                <div class="stat-sub">posibles accesos no autorizados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Último acceso</div>
+                <div class="stat-value" id="statUltimo" style="font-size:16px;margin-top:6px;">—</div>
+                <div class="stat-sub" id="statUltimoSub"></div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <div class="table-header">
+                <span class="table-title">Registro de accesos</span>
+                <span class="table-count" id="tableCount">—</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>IP</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr class="state-row"><td colspan="6"><span class="state-icon">⏳</span>Cargando registros...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const API   = 'https://api-production-91c0.up.railway.app';
+        let   token = localStorage.getItem('viridis-venetus_token');
+
+        window.addEventListener('pageshow', function() {
+            if (!localStorage.getItem('viridis-venetus_token')) location.replace('login.html');
+        });
+
+        async function refreshToken() {
+            const rt = localStorage.getItem('viridis-venetus_refresh_token');
+            if (!rt) return false;
+            try {
+                const res = await fetch(`${API}/refresh`, { method: 'POST', headers: { 'Authorization': `Bearer ${rt}` } });
+                if (res.ok) { const d = await res.json(); token = d.access_token; localStorage.setItem('viridis-venetus_token', token); return true; }
+            } catch {}
+            return false;
+        }
+
+        async function fetchConRefresh(url, opts = {}) {
+            opts.headers = { ...opts.headers, 'Authorization': `Bearer ${token}` };
+            let res = await fetch(url, opts);
+            if (res.status === 401) { const ok = await refreshToken(); if (ok) { opts.headers['Authorization'] = `Bearer ${token}`; res = await fetch(url, opts); } else { location.replace('login.html'); } }
+            return res;
+        }
+
+        async function loadAccesos() {
+            const tbody = document.getElementById('tableBody');
+            try {
+                const res  = await fetchConRefresh(`${API}/log_accesos`);
+                const data = await res.json();
+                const exitosos = data.filter(l => l.exitoso).length;
+                const fallidos = data.filter(l => !l.exitoso).length;
+
+                document.getElementById('statExitosos').textContent = exitosos;
+                document.getElementById('statFallidos').textContent = fallidos;
+
+                const ultimo = data.find(l => l.exitoso);
+                if (ultimo) {
+                    document.getElementById('statUltimo').textContent    = ultimo.usuario;
+                    document.getElementById('statUltimoSub').textContent = ultimo.fecha;
+                }
+
+                document.getElementById('tableCount').textContent = `${data.length} registros`;
+
+                tbody.innerHTML = data.map(l => `
+                    <tr>
+                        <td style="color:var(--gray);font-size:12px">#${l.id}</td>
+                        <td style="font-weight:500">${l.usuario}</td>
+                        <td style="color:var(--gray)">${l.rol}</td>
+                        <td style="color:var(--gray);font-size:12px;font-family:monospace">${l.ip}</td>
+                        <td>${l.exitoso ? '<span class="badge-ok">✓ Exitoso</span>' : '<span class="badge-fail">✕ Fallido</span>'}</td>
+                        <td style="color:var(--gray);font-size:13px">${l.fecha}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>Error al cargar: ${e.message}</td></tr>`;
+            }
+        }
+
+        loadAccesos();
+    </script>
+</body>
+</html>
