@@ -68,6 +68,13 @@
         @media (max-width: 900px) { .main { padding: 32px 20px; } .topbar { padding: 18px 20px; } .page-header { flex-direction: column; align-items: flex-start; gap: 16px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.2s ease forwards; }
+        .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+        .chart-title { font-size: 13px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; }
+        @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
     <header class="topbar">
@@ -109,6 +116,18 @@
             </div>
         </div>
 
+        <!-- Gráficas -->
+        <div class="charts-grid" id="chartsSection" style="display:none;">
+            <div class="chart-card">
+                <div class="chart-title">📈 Entradas vs Salidas vs Mermas</div>
+                <canvas id="chartTipos" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">📦 Top 5 Productos con más movimientos</div>
+                <canvas id="chartProductos" height="200"></canvas>
+            </div>
+        </div>
+
         <!-- Tabla -->
         <div class="table-wrapper">
             <div class="table-header">
@@ -144,8 +163,39 @@
 
     <script>
         const API   = 'https://api-production-91c0.up.railway.app';
-        const token = localStorage.getItem('viridis-venetus_token');
+        let   token = localStorage.getItem('viridis-venetus_token');
         const rol   = localStorage.getItem('viridis-venetus_rol') || '—';
+
+        // ── Refresh token automático ──────────────────────────────────────────
+        async function refreshToken() {
+            const rt = localStorage.getItem('viridis-venetus_refresh_token');
+            if (!rt) return false;
+            try {
+                const res  = await fetch(`${API}/refresh`, { method: 'POST', headers: { 'Authorization': `Bearer ${rt}` } });
+                if (res.ok) {
+                    const data = await res.json();
+                    token = data.access_token;
+                    localStorage.setItem('viridis-venetus_token', token);
+                    return true;
+                }
+            } catch {}
+            return false;
+        }
+
+        async function fetchConRefresh(url, opts = {}) {
+            opts.headers = { ...opts.headers, 'Authorization': `Bearer ${token}` };
+            let res = await fetch(url, opts);
+            if (res.status === 401) {
+                const ok = await refreshToken();
+                if (ok) {
+                    opts.headers['Authorization'] = `Bearer ${token}`;
+                    res = await fetch(url, opts);
+                } else {
+                    location.replace('login.html');
+                }
+            }
+            return res;
+        }
         if (!token) { location.replace("login.html"); }
         // Verificar sesión al volver con botón de retroceso
         window.addEventListener("pageshow", function(e) {
@@ -250,25 +300,74 @@
             document.getElementById('tableCount').textContent = '—';
 
             try {
-                const res  = await fetch(`${API}/reporte`, { headers: authHeaders });
-                if (res.status === 401) {
+                const res  = await fetchConRefresh(`${API}/reporte`);
+                if (!res.ok && res.status === 401) {
                     tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">🔒</span>Sesión expirada. <a href="login.html" style="color:var(--accent)">Inicia sesión de nuevo</a></td></tr>`;
                     return;
                 }
                 let data = await res.json();
 
-                // Filtrar por fecha
                 if (fechaInicio) data = data.filter(m => m.fecha >= fechaInicio);
                 if (fechaFin)    data = data.filter(m => m.fecha <= fechaFin + ' 23:59:59');
-
-                // Filtrar por almacén
                 if (filterAlmacen) data = data.filter(m => m.almacen === filterAlmacen);
 
                 allMovs = data;
                 renderTable(data);
+                renderCharts(data);
             } catch(e) {
                 tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>Error: ${e.message}</td></tr>`;
             }
+        }
+
+        // Instancias de Chart.js para poder destruirlas antes de redibujar
+        let chartTiposInst = null;
+        let chartProdInst  = null;
+
+        function renderCharts(data) {
+            if (!data.length) {
+                document.getElementById('chartsSection').style.display = 'none';
+                return;
+            }
+            document.getElementById('chartsSection').style.display = 'grid';
+
+            // ── Gráfica 1: Entradas vs Salidas vs Mermas ──────────────────────
+            const entradas = data.filter(m => m.tipo === 'ENTRADA').length;
+            const salidas  = data.filter(m => m.tipo === 'SALIDA').length;
+            const mermas   = data.filter(m => m.tipo === 'MERMA').length;
+
+            if (chartTiposInst) chartTiposInst.destroy();
+            chartTiposInst = new Chart(document.getElementById('chartTipos'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Entradas', 'Salidas', 'Mermas'],
+                    datasets: [{ data: [entradas, salidas, mermas],
+                        backgroundColor: ['rgba(0,200,150,0.8)', 'rgba(255,91,91,0.8)', 'rgba(245,200,66,0.8)'],
+                        borderColor: ['#00c896', '#ff5b5b', '#f5c842'], borderWidth: 2 }]
+                },
+                options: { plugins: { legend: { labels: { color: '#8a9bb0', font: { size: 12 } } } } }
+            });
+
+            // ── Gráfica 2: Top 5 productos ────────────────────────────────────
+            const conteo = {};
+            data.forEach(m => { conteo[m.producto] = (conteo[m.producto] || 0) + 1; });
+            const top5 = Object.entries(conteo).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+            if (chartProdInst) chartProdInst.destroy();
+            chartProdInst = new Chart(document.getElementById('chartProductos'), {
+                type: 'bar',
+                data: {
+                    labels: top5.map(([k]) => k),
+                    datasets: [{ label: 'Movimientos', data: top5.map(([,v]) => v),
+                        backgroundColor: 'rgba(0,97,168,0.7)', borderColor: '#1a7fc4', borderWidth: 1, borderRadius: 6 }]
+                },
+                options: {
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#8a9bb0', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { ticks: { color: '#8a9bb0' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+                    }
+                }
+            });
         }
 
         function renderTable(data) {
