@@ -29,6 +29,8 @@
         .menu-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 36px 32px; cursor: pointer; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; text-decoration: none; color: inherit; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s ease forwards; display: flex; flex-direction: column; gap: 16px; }
         .menu-card:nth-child(1) { animation-delay: 0.2s; }
         .menu-card:nth-child(2) { animation-delay: 0.3s; }
+        .menu-card:nth-child(3) { animation-delay: 0.4s; }
+        .menu-card:nth-child(4) { animation-delay: 0.5s; }
         .menu-card:hover { transform: translateY(-4px); border-color: rgba(0,200,150,0.4); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
         .menu-card:hover .card-icon { background: var(--accent); }
         .card-icon { width: 52px; height: 52px; border-radius: 14px; background: rgba(0,97,168,0.4); display: flex; align-items: center; justify-content: center; transition: background 0.2s; font-size: 24px; }
@@ -73,6 +75,18 @@
                 <div class="card-icon">📦</div>
                 <div class="card-title">Inventario</div>
                 <div class="card-desc">Consulta el stock actual de productos en tu almacén.</div>
+                <span class="card-arrow">→</span>
+            </a>
+            <a class="menu-card" href="mermas.html">
+                <div class="card-icon">⚠️</div>
+                <div class="card-title">Historial de Mermas</div>
+                <div class="card-desc">Analiza pérdidas y desperdicios por producto y empleado.</div>
+                <span class="card-arrow">→</span>
+            </a>
+            <a class="menu-card" href="accesos.html">
+                <div class="card-icon">🔐</div>
+                <div class="card-title">Log de Accesos</div>
+                <div class="card-desc">Consulta quién ha iniciado sesión y detecta accesos fallidos.</div>
                 <span class="card-arrow">→</span>
             </a>
         </div>
