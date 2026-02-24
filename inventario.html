@@ -222,40 +222,82 @@
     </div>
 
     <script>
-        const API   = 'https://api-production-91c0.up.railway.app';
-        const token = localStorage.getItem('viridis-venetus_token');
+        const API = 'https://api-production-91c0.up.railway.app';
+        let token = localStorage.getItem('viridis-venetus_token');
         if (!token) { location.replace("login.html"); }
-        // Verificar sesión al volver con botón de retroceso
+
         window.addEventListener("pageshow", function(e) {
-            if (!localStorage.getItem("viridis-venetus_token")) {
-                location.replace("login.html");
-            }
+            if (!localStorage.getItem("viridis-venetus_token")) location.replace("login.html");
         });
 
-        const authHeaders = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
+        function getHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('viridis-venetus_token')}`
+            };
+        }
+
+        // Fetch con refresh automático
+        async function fetchAPI(url, options = {}) {
+            options.headers = getHeaders();
+            let res = await fetch(url, options);
+
+            if (res.status === 401) {
+                const rt = localStorage.getItem('viridis-venetus_refresh_token');
+                if (rt) {
+                    const r2 = await fetch(`${API}/refresh`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${rt}` }
+                    });
+                    if (r2.ok) {
+                        const d = await r2.json();
+                        localStorage.setItem('viridis-venetus_token', d.access_token);
+                        options.headers = getHeaders();
+                        res = await fetch(url, options);
+                    } else {
+                        localStorage.clear();
+                        location.replace('login.html');
+                    }
+                } else {
+                    localStorage.clear();
+                    location.replace('login.html');
+                }
+            }
+            return res;
+        }
 
         let allProducts = [];
 
         // ── Cargar productos ──────────────────────────────────────
         async function loadProducts() {
             try {
-                const res  = await fetch(`${API}/productos`, { headers: authHeaders });
-                if (res.status === 401) {
+                const res = await fetchAPI(`${API}/productos`);
+                const text = await res.text();
+
+                // Ver qué está devolviendo la API
+                let data;
+                try { data = JSON.parse(text); } catch {
                     document.getElementById('tableBody').innerHTML =
-                        `<tr class="state-row"><td colspan="6"><span class="state-icon">🔒</span>Sesión expirada. <a href="login.html" style="color:var(--accent)">Inicia sesión de nuevo</a></td></tr>`;
+                        `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>Respuesta inesperada del servidor.</td></tr>`;
+                    console.error('Respuesta no JSON:', text.substring(0, 200));
                     return;
                 }
-                const data = await res.json();
+
+                // Si devuelve objeto en vez de array (error del servidor)
+                if (!Array.isArray(data)) {
+                    document.getElementById('tableBody').innerHTML =
+                        `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>${data.msg || 'Error del servidor'}</td></tr>`;
+                    return;
+                }
+
                 allProducts = data;
                 renderKPIs(data);
                 renderTable(data);
                 populateModalSelect(data);
-            } catch {
+            } catch (e) {
                 document.getElementById('tableBody').innerHTML =
                     `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>No se pudo conectar con la API.</td></tr>`;
+                console.error(e);
             }
         }
 
@@ -356,9 +398,8 @@
             btn.textContent = 'Guardando...';
 
             try {
-                const res  = await fetch(`${API}/registrar_movimiento`, {
+                const res  = await fetchAPI(`${API}/registrar_movimiento`, {
                     method: 'POST',
-                    headers: authHeaders,
                     body: JSON.stringify({ id_producto, tipo, cantidad })
                 });
                 const data = await res.json();
@@ -430,9 +471,8 @@
         }
 
         async function cargarUsuarios() {
-            const token = localStorage.getItem('viridis-venetus_token');
             try {
-                const res  = await fetch(`${API}/usuarios`, { headers: { Authorization: `Bearer ${token}` } });
+                const res  = await fetchAPI(`${API}/usuarios`);
                 const data = await res.json();
                 const sel  = document.getElementById('selUsuario');
                 sel.innerHTML = '<option value="">— Selecciona un empleado —</option>';
@@ -465,9 +505,8 @@
             msg.textContent = '';
 
             try {
-                const res  = await fetch(`${API}/reset_password`, {
+                const res  = await fetchAPI(`${API}/reset_password`, {
                     method:  'POST',
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body:    JSON.stringify({ id_usuario: idUser, nueva_password: password })
                 });
                 const data = await res.json();
