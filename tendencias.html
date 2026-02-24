@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viridis Venetus — Tendencias</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy: #0a1628; --blue: #0061a8; --blue-light: #1a7fc4;
+            --accent: #00c896; --accent-dim: rgba(0,200,150,0.1);
+            --white: #ffffff; --gray: #8a9bb0; --surface: #0f1e35;
+            --card: #162033; --border: rgba(255,255,255,0.08);
+            --red: #ff5b5b; --yellow: #f5c842; --green: #00c896;
+        }
+        body { background: var(--navy); min-height: 100vh; font-family: 'DM Sans', sans-serif; color: var(--white); }
+
+        /* TOPBAR */
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 22px 48px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { width: 40px; height: 40px; background: var(--blue); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .brand-name { font-family: 'Playfair Display', serif; font-size: 22px; }
+        .back-link { color: var(--gray); font-size: 14px; text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--white); }
+
+        /* MAIN */
+        .main { padding: 40px 48px; max-width: 1200px; margin: 0 auto; }
+
+        /* PAGE HEADER */
+        .page-header { margin-bottom: 36px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.05s ease forwards; }
+        .page-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(245,200,66,0.1); color: var(--yellow); font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: 20px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .page-header h1 { font-family: 'Playfair Display', serif; font-size: 32px; }
+        .page-header p { color: var(--gray); font-size: 14px; margin-top: 4px; }
+
+        /* SELECTOR DE MODO */
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 32px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.1s ease forwards; }
+        .mode-btn { padding: 10px 24px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--gray); font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
+        .mode-btn.active { background: var(--accent); border-color: var(--accent); color: var(--navy); font-weight: 600; }
+        .mode-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+        /* KPI CARDS */
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.15s ease forwards; }
+        .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px 28px; position: relative; overflow: hidden; }
+        .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+        .kpi-card.green::before { background: var(--green); }
+        .kpi-card.red::before   { background: var(--red); }
+        .kpi-card.yellow::before{ background: var(--yellow); }
+        .kpi-label { font-size: 12px; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+        .kpi-value { font-family: 'Playfair Display', serif; font-size: 36px; margin-bottom: 8px; }
+        .kpi-value.green  { color: var(--green); }
+        .kpi-value.red    { color: var(--red); }
+        .kpi-value.yellow { color: var(--yellow); }
+        .kpi-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+        .kpi-delta.up   { background: rgba(0,200,150,0.1); color: var(--green); }
+        .kpi-delta.down { background: rgba(255,91,91,0.1);  color: var(--red); }
+        .kpi-delta.same { background: rgba(138,155,176,0.1); color: var(--gray); }
+        .kpi-sub { font-size: 12px; color: var(--gray); margin-top: 6px; }
+
+        /* CHARTS */
+        .charts-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; margin-bottom: 20px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.2s ease forwards; }
+        .charts-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.25s ease forwards; }
+        .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+        .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .chart-title { font-size: 14px; font-weight: 600; }
+        .chart-sub { font-size: 12px; color: var(--gray); margin-top: 2px; }
+        .chart-legend { display: flex; gap: 16px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray); }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* TABLA PRODUCTOS */
+        .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 20px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.3s ease forwards; }
+        .table-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; border-bottom: 1px solid var(--border); }
+        .table-head h3 { font-size: 14px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { padding: 12px 20px; text-align: left; font-size: 11px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+        thead th:first-child { padding-left: 28px; }
+        tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.025); }
+        tbody td { padding: 14px 20px; font-size: 14px; }
+        tbody td:first-child { padding-left: 28px; }
+        .trend-bar-bg { background: rgba(255,255,255,0.06); border-radius: 4px; height: 6px; width: 120px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 8px; }
+        .trend-bar-fill { height: 100%; border-radius: 4px; background: var(--red); transition: width 0.6s ease; }
+        .change-up   { color: var(--red);   font-weight: 600; }
+        .change-down { color: var(--green); font-weight: 600; }
+        .change-same { color: var(--gray); }
+
+        /* LOADING */
+        .loading-overlay { position: fixed; inset: 0; background: rgba(10,22,40,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .loading-text { color: var(--gray); font-size: 14px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 900px) {
+            .main { padding: 24px 20px; }
+            .topbar { padding: 18px 20px; }
+            .kpi-grid { grid-template-columns: 1fr; }
+            .charts-row, .charts-row-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Calculando tendencias...</div>
+</div>
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">🌿</div>
+        <span class="brand-name">Viridis Venetus</span>
+    </div>
+    <a href="menu.html" class="back-link">← Volver al menú</a>
+</header>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-badge">📈 Análisis</div>
+        <h1>Tendencias</h1>
+        <p>Comparación de movimientos entre periodos</p>
+    </div>
+
+    <div class="mode-selector">
+        <button class="mode-btn active" onclick="cambiarModo('semanas')">Semana actual vs anterior</button>
+        <button class="mode-btn" onclick="cambiarModo('meses')">Mes actual vs anterior</button>
+        <button class="mode-btn" onclick="cambiarModo('ultimas4')">Últimas 4 semanas</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card green">
+            <div class="kpi-label">Entradas</div>
+            <div class="kpi-value green" id="kpiEntradas">—</div>
+            <span class="kpi-delta same" id="deltaEntradas">—</span>
+            <div class="kpi-sub" id="subEntradas"></div>
+        </div>
+        <div class="kpi-card red">
+            <div class="kpi-label">Salidas</div>
+            <div class="kpi-value red" id="kpiSalidas">—</div>
+            <span class="kpi-delta same" id="deltaSalidas">—</span>
+            <div class="kpi-sub" id="subSalidas"></div>
+        </div>
+        <div class="kpi-card yellow">
+            <div class="kpi-label">Mermas</div>
+            <div class="kpi-value yellow" id="kpiMermas">—</div>
+            <span class="kpi-delta same" id="deltaMermas">—</span>
+            <div class="kpi-sub" id="subMermas"></div>
+        </div>
+    </div>
+
+    <!-- Chart fila 1: barras comparativas + dona -->
+    <div class="charts-row">
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title" id="barChartTitle">Comparación por tipo</div>
+                    <div class="chart-sub" id="barChartSub">Periodo actual vs anterior</div>
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#00c896"></div> Actual</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.2)"></div> Anterior</div>
+                </div>
+            </div>
+            <canvas id="chartBarras" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Distribución actual</div>
+                    <div class="chart-sub">Proporción por tipo</div>
+                </div>
+            </div>
+            <canvas id="chartDona" height="220"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart fila 2: línea tendencia mermas + barras por día/semana -->
+    <div class="charts-row-2">
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title" id="lineChartTitle">Evolución de mermas</div>
+                    <div class="chart-sub">Pérdidas a lo largo del tiempo</div>
+                </div>
+            </div>
+            <canvas id="chartLinea" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title" id="actividadTitle">Actividad diaria</div>
+                    <div class="chart-sub" id="actividadSub">Movimientos por día</div>
+                </div>
+            </div>
+            <canvas id="chartActividad" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabla top productos con más mermas -->
+    <div class="table-card">
+        <div class="table-head">
+            <h3>⚠️ Productos con más mermas en el periodo actual</h3>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Producto</th>
+                    <th>Merma actual</th>
+                    <th>Merma anterior</th>
+                    <th>Cambio</th>
+                    <th>Proporción</th>
+                </tr>
+            </thead>
+            <tbody id="tablaMermas"></tbody>
+        </table>
+    </div>
+</main>
+
+<script>
+const API   = 'https://api-production-91c0.up.railway.app';
+const token = localStorage.getItem('viridis-venetus_token');
+let   modo  = 'semanas';
+let   chartBarras, chartDona, chartLinea, chartActividad;
+
+if (!token) { window.location.replace('login.html'); }
+
+// ── Utilidades de fecha ──────────────────────────────────────────────────────
+function fmtDate(d) {
+    return d.toISOString().split('T')[0];
+}
+function addDays(d, n) {
+    const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+function startOfWeek(d) {
+    const r = new Date(d);
+    const day = r.getDay(); // 0=dom
+    r.setDate(r.getDate() - (day === 0 ? 6 : day - 1)); // lunes
+    r.setHours(0,0,0,0);
+    return r;
+}
+function startOfMonth(d) {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function endOfMonth(d) {
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+function getPeriodos() {
+    const hoy = new Date();
+    if (modo === 'semanas') {
+        const lunes = startOfWeek(hoy);
+        const lunesAnterior = addDays(lunes, -7);
+        return {
+            actual:   { ini: fmtDate(lunes),         fin: fmtDate(hoy) },
+            anterior: { ini: fmtDate(lunesAnterior),  fin: fmtDate(addDays(lunes, -1)) },
+            labelActual: 'Esta semana', labelAnterior: 'Semana pasada'
+        };
+    } else if (modo === 'meses') {
+        const inicioMes = startOfMonth(hoy);
+        const mesPasadoIni = startOfMonth(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1));
+        const mesPasadoFin = endOfMonth(mesPasadoIni);
+        const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        return {
+            actual:   { ini: fmtDate(inicioMes),    fin: fmtDate(hoy) },
+            anterior: { ini: fmtDate(mesPasadoIni), fin: fmtDate(mesPasadoFin) },
+            labelActual: meses[hoy.getMonth()], labelAnterior: meses[hoy.getMonth()-1 < 0 ? 11 : hoy.getMonth()-1]
+        };
+    } else {
+        // últimas 4 semanas
+        const semanas = [];
+        let fin = new Date(hoy);
+        for (let i = 0; i < 4; i++) {
+            const ini = addDays(fin, -6);
+            semanas.unshift({ ini: fmtDate(ini), fin: fmtDate(fin), label: `S${4-i}` });
+            fin = addDays(ini, -1);
+        }
+        return { semanas };
+    }
+}
+
+// ── Fetch con refresh ────────────────────────────────────────────────────────
+async function fetchAPI(url) {
+    let res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('viridis-venetus_token')}` } });
+    if (res.status === 401) {
+        const rt = localStorage.getItem('viridis-venetus_refresh_token');
+        if (rt) {
+            const r2 = await fetch(`${API}/refresh`, { method: 'POST', headers: { Authorization: `Bearer ${rt}` } });
+            if (r2.ok) {
+                const d = await r2.json();
+                localStorage.setItem('viridis-venetus_token', d.access_token);
+                res = await fetch(url, { headers: { Authorization: `Bearer ${d.access_token}` } });
+            } else { window.location.replace('login.html'); }
+        } else { window.location.replace('login.html'); }
+    }
+    return res.json();
+}
+
+async function fetchReporte(ini, fin) {
+    return fetchAPI(`${API}/reporte?fecha_inicio=${ini}&fecha_fin=${fin}`);
+}
+
+// ── Procesamiento ────────────────────────────────────────────────────────────
+function sumarTipos(data) {
+    const r = { ENTRADA: 0, SALIDA: 0, MERMA: 0, total: 0 };
+    for (const m of data) {
+        const t = m.tipo;
+        if (r[t] !== undefined) { r[t] += m.cantidad; r.total++; }
+    }
+    return r;
+}
+
+function mermasPorProducto(data) {
+    const mapa = {};
+    for (const m of data) {
+        if (m.tipo !== 'MERMA') continue;
+        if (!mapa[m.producto]) mapa[m.producto] = 0;
+        mapa[m.producto] += m.cantidad;
+    }
+    return Object.entries(mapa).sort((a,b) => b[1]-a[1]);
+}
+
+function agruparPorDia(data) {
+    const mapa = {};
+    for (const m of data) {
+        const dia = m.fecha.split(' ')[0];
+        if (!mapa[dia]) mapa[dia] = { ENTRADA:0, SALIDA:0, MERMA:0 };
+        mapa[dia][m.tipo] = (mapa[dia][m.tipo] || 0) + m.cantidad;
+    }
+    return mapa;
+}
+
+// ── Delta badge ──────────────────────────────────────────────────────────────
+function delta(actual, anterior, elId) {
+    const el = document.getElementById(elId);
+    if (anterior === 0) { el.textContent = 'Sin datos previos'; el.className = 'kpi-delta same'; return; }
+    const pct = ((actual - anterior) / anterior * 100).toFixed(1);
+    const isUp = actual > anterior;
+    el.textContent = `${isUp ? '▲' : '▼'} ${Math.abs(pct)}% vs periodo anterior`;
+    el.className = `kpi-delta ${isUp ? 'up' : 'down'}`;
+}
+
+// ── Destruir charts ──────────────────────────────────────────────────────────
+function destroyCharts() {
+    [chartBarras, chartDona, chartLinea, chartActividad].forEach(c => { if (c) c.destroy(); });
+}
+
+// ── Render modo comparación (semanas / meses) ─────────────────────────────
+async function renderComparacion(periodos) {
+    const [dataActual, dataAnterior] = await Promise.all([
+        fetchReporte(periodos.actual.ini,   periodos.actual.fin),
+        fetchReporte(periodos.anterior.ini, periodos.anterior.fin)
+    ]);
+
+    const actual   = sumarTipos(dataActual);
+    const anterior = sumarTipos(dataAnterior);
+
+    // KPIs
+    document.getElementById('kpiEntradas').textContent = actual.ENTRADA.toFixed(1);
+    document.getElementById('kpiSalidas').textContent  = actual.SALIDA.toFixed(1);
+    document.getElementById('kpiMermas').textContent   = actual.MERMA.toFixed(1);
+    document.getElementById('subEntradas').textContent = `Anterior: ${anterior.ENTRADA.toFixed(1)}`;
+    document.getElementById('subSalidas').textContent  = `Anterior: ${anterior.SALIDA.toFixed(1)}`;
+    document.getElementById('subMermas').textContent   = `Anterior: ${anterior.MERMA.toFixed(1)}`;
+    delta(actual.ENTRADA, anterior.ENTRADA, 'deltaEntradas');
+    delta(actual.SALIDA,  anterior.SALIDA,  'deltaSalidas');
+    delta(actual.MERMA,   anterior.MERMA,   'deltaMermas');
+
+    destroyCharts();
+
+    // Barras comparativas
+    document.getElementById('barChartTitle').textContent = `${periodos.labelActual} vs ${periodos.labelAnterior}`;
+    chartBarras = new Chart(document.getElementById('chartBarras'), {
+        type: 'bar',
+        data: {
+            labels: ['Entradas', 'Salidas', 'Mermas'],
+            datasets: [
+                {
+                    label: periodos.labelActual,
+                    data: [actual.ENTRADA, actual.SALIDA, actual.MERMA],
+                    backgroundColor: ['rgba(0,200,150,0.8)', 'rgba(255,91,91,0.8)', 'rgba(245,200,66,0.8)'],
+                    borderRadius: 6,
+                },
+                {
+                    label: periodos.labelAnterior,
+                    data: [anterior.ENTRADA, anterior.SALIDA, anterior.MERMA],
+                    backgroundColor: ['rgba(0,200,150,0.25)', 'rgba(255,91,91,0.25)', 'rgba(245,200,66,0.25)'],
+                    borderRadius: 6,
+                }
+            ]
+        },
+        options: chartOpts()
+    });
+
+    // Dona distribución actual
+    chartDona = new Chart(document.getElementById('chartDona'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Entradas', 'Salidas', 'Mermas'],
+            datasets: [{
+                data: [actual.ENTRADA, actual.SALIDA, actual.MERMA],
+                backgroundColor: ['rgba(0,200,150,0.85)', 'rgba(255,91,91,0.85)', 'rgba(245,200,66,0.85)'],
+                borderWidth: 0,
+                hoverOffset: 6
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { color: '#8a9bb0', font: { family: 'DM Sans' }, padding: 16 } } }, cutout: '65%' }
+    });
+
+    // Línea mermas por día (periodo actual)
+    const agrupado = agruparPorDia(dataActual);
+    const diasLabels = Object.keys(agrupado).sort();
+    document.getElementById('lineChartTitle').textContent = `Mermas diarias — ${periodos.labelActual}`;
+    chartLinea = new Chart(document.getElementById('chartLinea'), {
+        type: 'line',
+        data: {
+            labels: diasLabels.map(d => d.slice(5)), // MM-DD
+            datasets: [{
+                label: 'Mermas',
+                data: diasLabels.map(d => agrupado[d].MERMA || 0),
+                borderColor: '#f5c842',
+                backgroundColor: 'rgba(245,200,66,0.08)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#f5c842',
+                pointRadius: 4
+            }]
+        },
+        options: { ...chartOpts(), scales: { x: gridStyle(), y: gridStyle(true) } }
+    });
+
+    // Barras actividad diaria actual
+    document.getElementById('actividadTitle').textContent = 'Actividad diaria';
+    document.getElementById('actividadSub').textContent = periodos.labelActual;
+    chartActividad = new Chart(document.getElementById('chartActividad'), {
+        type: 'bar',
+        data: {
+            labels: diasLabels.map(d => d.slice(5)),
+            datasets: [
+                { label: 'Entradas', data: diasLabels.map(d => agrupado[d].ENTRADA || 0), backgroundColor: 'rgba(0,200,150,0.7)', borderRadius: 4, stack: 'a' },
+                { label: 'Salidas',  data: diasLabels.map(d => agrupado[d].SALIDA  || 0), backgroundColor: 'rgba(255,91,91,0.7)',  borderRadius: 4, stack: 'a' },
+                { label: 'Mermas',   data: diasLabels.map(d => agrupado[d].MERMA   || 0), backgroundColor: 'rgba(245,200,66,0.7)', borderRadius: 4, stack: 'a' },
+            ]
+        },
+        options: { ...chartOpts(), scales: { x: gridStyle(), y: gridStyle(true) } }
+    });
+
+    // Tabla mermas por producto
+    const mermasActual   = Object.fromEntries(mermasPorProducto(dataActual));
+    const mermasAnterior = Object.fromEntries(mermasPorProducto(dataAnterior));
+    const maxMerma = Math.max(...Object.values(mermasActual), 1);
+    const productos = Object.keys(mermasActual).slice(0, 8);
+    const tbody = document.getElementById('tablaMermas');
+    tbody.innerHTML = productos.length === 0
+        ? '<tr><td colspan="6" style="text-align:center;color:#8a9bb0;padding:40px">Sin mermas en este periodo</td></tr>'
+        : productos.map((prod, i) => {
+            const act = mermasActual[prod] || 0;
+            const ant = mermasAnterior[prod] || 0;
+            const pct = ant > 0 ? ((act - ant) / ant * 100).toFixed(1) : null;
+            const pctText = pct === null ? '<span class="change-same">—</span>'
+                : pct > 0 ? `<span class="change-up">▲ ${pct}%</span>`
+                : `<span class="change-down">▼ ${Math.abs(pct)}%</span>`;
+            const barW = Math.round((act / maxMerma) * 100);
+            return `<tr>
+                <td style="color:#8a9bb0">${i+1}</td>
+                <td><strong>${prod}</strong></td>
+                <td style="color:#f5c842;font-weight:600">${act.toFixed(2)}</td>
+                <td style="color:#8a9bb0">${ant.toFixed(2)}</td>
+                <td>${pctText}</td>
+                <td><span class="trend-bar-bg"><span class="trend-bar-fill" style="width:${barW}%"></span></span></td>
+            </tr>`;
+        }).join('');
+}
+
+// ── Render modo últimas 4 semanas ─────────────────────────────────────────
+async function renderUltimas4(periodos) {
+    const resultados = await Promise.all(
+        periodos.semanas.map(s => fetchReporte(s.ini, s.fin))
+    );
+    const sumados = resultados.map(sumarTipos);
+    const labels  = periodos.semanas.map(s => `${s.label} (${s.ini.slice(5)})`);
+
+    // KPIs de la última semana vs la anterior
+    const ult  = sumados[3];
+    const prev = sumados[2];
+    document.getElementById('kpiEntradas').textContent = ult.ENTRADA.toFixed(1);
+    document.getElementById('kpiSalidas').textContent  = ult.SALIDA.toFixed(1);
+    document.getElementById('kpiMermas').textContent   = ult.MERMA.toFixed(1);
+    document.getElementById('subEntradas').textContent = `Semana anterior: ${prev.ENTRADA.toFixed(1)}`;
+    document.getElementById('subSalidas').textContent  = `Semana anterior: ${prev.SALIDA.toFixed(1)}`;
+    document.getElementById('subMermas').textContent   = `Semana anterior: ${prev.MERMA.toFixed(1)}`;
+    delta(ult.ENTRADA, prev.ENTRADA, 'deltaEntradas');
+    delta(ult.SALIDA,  prev.SALIDA,  'deltaSalidas');
+    delta(ult.MERMA,   prev.MERMA,   'deltaMermas');
+
+    destroyCharts();
+
+    // Línea de las 4 semanas
+    document.getElementById('barChartTitle').textContent = 'Movimientos — 4 semanas';
+    document.getElementById('barChartSub').textContent = 'Entradas, salidas y mermas';
+    chartBarras = new Chart(document.getElementById('chartBarras'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Entradas', data: sumados.map(s => s.ENTRADA), borderColor: '#00c896', backgroundColor: 'rgba(0,200,150,0.08)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 5, pointBackgroundColor: '#00c896' },
+                { label: 'Salidas',  data: sumados.map(s => s.SALIDA),  borderColor: '#ff5b5b', backgroundColor: 'rgba(255,91,91,0.06)',  fill: true, tension: 0.4, borderWidth: 2, pointRadius: 5, pointBackgroundColor: '#ff5b5b' },
+                { label: 'Mermas',   data: sumados.map(s => s.MERMA),   borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.06)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 5, pointBackgroundColor: '#f5c842' },
+            ]
+        },
+        options: { ...chartOpts(), scales: { x: gridStyle(), y: gridStyle(true) } }
+    });
+
+    // Dona de la última semana
+    chartDona = new Chart(document.getElementById('chartDona'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Entradas', 'Salidas', 'Mermas'],
+            datasets: [{
+                data: [ult.ENTRADA, ult.SALIDA, ult.MERMA],
+                backgroundColor: ['rgba(0,200,150,0.85)', 'rgba(255,91,91,0.85)', 'rgba(245,200,66,0.85)'],
+                borderWidth: 0, hoverOffset: 6
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { color: '#8a9bb0', font: { family: 'DM Sans' }, padding: 16 } } }, cutout: '65%' }
+    });
+
+    // Mermas semana a semana
+    document.getElementById('lineChartTitle').textContent = 'Tendencia de mermas';
+    chartLinea = new Chart(document.getElementById('chartLinea'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Mermas',
+                data: sumados.map(s => s.MERMA),
+                backgroundColor: sumados.map((s, i) => i === 3 ? 'rgba(245,200,66,0.9)' : 'rgba(245,200,66,0.35)'),
+                borderRadius: 8
+            }]
+        },
+        options: { ...chartOpts(), scales: { x: gridStyle(), y: gridStyle(true) } }
+    });
+
+    // Actividad total por semana (apilado)
+    document.getElementById('actividadTitle').textContent = 'Total movimientos';
+    document.getElementById('actividadSub').textContent = 'Por semana';
+    chartActividad = new Chart(document.getElementById('chartActividad'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Entradas', data: sumados.map(s => s.ENTRADA), backgroundColor: 'rgba(0,200,150,0.7)',  borderRadius: 4, stack: 'a' },
+                { label: 'Salidas',  data: sumados.map(s => s.SALIDA),  backgroundColor: 'rgba(255,91,91,0.7)',  borderRadius: 4, stack: 'a' },
+                { label: 'Mermas',   data: sumados.map(s => s.MERMA),   backgroundColor: 'rgba(245,200,66,0.7)', borderRadius: 4, stack: 'a' },
+            ]
+        },
+        options: { ...chartOpts(), scales: { x: gridStyle(), y: gridStyle(true) } }
+    });
+
+    // Tabla mermas acumuladas últimas 4 semanas
+    const mermasAcum = {};
+    resultados.forEach(d => {
+        for (const [prod, val] of mermasPorProducto(d)) {
+            mermasAcum[prod] = (mermasAcum[prod] || 0) + val;
+        }
+    });
+    const topMermas = Object.entries(mermasAcum).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const maxVal = Math.max(...topMermas.map(x=>x[1]), 1);
+    const tbody = document.getElementById('tablaMermas');
+    tbody.innerHTML = topMermas.length === 0
+        ? '<tr><td colspan="6" style="text-align:center;color:#8a9bb0;padding:40px">Sin mermas en este periodo</td></tr>'
+        : topMermas.map(([prod, val], i) => {
+            const barW = Math.round((val / maxVal) * 100);
+            const s1 = (mermasPorProducto(resultados[3]).find(x=>x[0]===prod)||[,0])[1];
+            const s0 = (mermasPorProducto(resultados[2]).find(x=>x[0]===prod)||[,0])[1];
+            const pct = s0 > 0 ? ((s1-s0)/s0*100).toFixed(1) : null;
+            const pctText = pct === null ? '<span class="change-same">—</span>'
+                : pct > 0 ? `<span class="change-up">▲ ${pct}%</span>`
+                : `<span class="change-down">▼ ${Math.abs(pct)}%</span>`;
+            return `<tr>
+                <td style="color:#8a9bb0">${i+1}</td>
+                <td><strong>${prod}</strong></td>
+                <td style="color:#f5c842;font-weight:600">${val.toFixed(2)}</td>
+                <td style="color:#8a9bb0">${s0.toFixed(2)}</td>
+                <td>${pctText}</td>
+                <td><span class="trend-bar-bg"><span class="trend-bar-fill" style="width:${barW}%"></span></span></td>
+            </tr>`;
+        }).join('');
+}
+
+// ── Opciones Chart.js ────────────────────────────────────────────────────────
+function gridStyle(addZero = false) {
+    return { ticks: { color: '#8a9bb0', font: { family: 'DM Sans', size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, ...(addZero ? { beginAtZero: true } : {}) };
+}
+function chartOpts() {
+    return {
+        responsive: true,
+        plugins: {
+            legend: { labels: { color: '#8a9bb0', font: { family: 'DM Sans', size: 12 }, padding: 16, boxWidth: 12 } },
+            tooltip: { backgroundColor: '#162033', borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1, titleColor: '#ffffff', bodyColor: '#8a9bb0', titleFont: { family: 'DM Sans', size: 13 }, bodyFont: { family: 'DM Sans', size: 12 }, padding: 12 }
+        }
+    };
+}
+
+// ── Cargar datos ─────────────────────────────────────────────────────────────
+async function cargar() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    try {
+        const periodos = getPeriodos();
+        if (modo === 'ultimas4') {
+            await renderUltimas4(periodos);
+        } else {
+            await renderComparacion(periodos);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al cargar datos. Verifica tu conexión.');
+    }
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function cambiarModo(m) {
+    modo = m;
+    document.querySelectorAll('.mode-btn').forEach((b, i) => {
+        b.classList.toggle('active', ['semanas','meses','ultimas4'][i] === m);
+    });
+    cargar();
+}
+
+cargar();
+</script>
+</body>
+</html>
