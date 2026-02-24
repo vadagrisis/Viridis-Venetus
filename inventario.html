@@ -134,6 +134,7 @@
             </div>
             <div class="header-actions">
                 <button class="btn-secondary" onclick="exportExcel()">⬇ Exportar Excel</button>
+                <button class="btn-secondary" onclick="openModalUsuarios()">👥 Usuarios</button>
                 <button class="btn-primary"   onclick="openModal()">+ Registrar movimiento</button>
             </div>
         </div>
@@ -416,7 +417,107 @@
             location.replace('login.html');
         }
 
+        // ── Gestión de usuarios ───────────────────────────────────────────────
+        async function openModalUsuarios() {
+            document.getElementById('modalUsuarios').classList.add('open');
+            await cargarUsuarios();
+        }
+
+        function closeModalUsuarios() {
+            document.getElementById('modalUsuarios').classList.remove('open');
+            document.getElementById('resetForm').style.display = 'none';
+            document.getElementById('resetMsg').textContent = '';
+        }
+
+        async function cargarUsuarios() {
+            const token = localStorage.getItem('viridis-venetus_token');
+            try {
+                const res  = await fetch(`${API}/usuarios`, { headers: { Authorization: `Bearer ${token}` } });
+                const data = await res.json();
+                const sel  = document.getElementById('selUsuario');
+                sel.innerHTML = '<option value="">— Selecciona un empleado —</option>';
+                data.filter(u => u.rol !== 'Gerente').forEach(u => {
+                    sel.innerHTML += `<option value="${u.id}">${u.username} (${u.rol})</option>`;
+                });
+            } catch {
+                document.getElementById('resetMsg').textContent = 'Error al cargar usuarios.';
+            }
+        }
+
+        document.getElementById('selUsuario').addEventListener('change', function() {
+            document.getElementById('resetForm').style.display = this.value ? 'block' : 'none';
+            document.getElementById('resetMsg').textContent = '';
+            document.getElementById('nuevaPassword').value = '';
+        });
+
+        async function resetPassword() {
+            const token    = localStorage.getItem('viridis-venetus_token');
+            const idUser   = document.getElementById('selUsuario').value;
+            const password = document.getElementById('nuevaPassword').value.trim();
+            const btn      = document.getElementById('btnReset');
+            const msg      = document.getElementById('resetMsg');
+
+            if (!password) { msg.textContent = 'Ingresa una contraseña.'; msg.style.color = '#ff5b5b'; return; }
+            if (password.length < 6) { msg.textContent = 'Mínimo 6 caracteres.'; msg.style.color = '#ff5b5b'; return; }
+
+            btn.disabled  = true;
+            btn.textContent = 'Guardando...';
+            msg.textContent = '';
+
+            try {
+                const res  = await fetch(`${API}/reset_password`, {
+                    method:  'POST',
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ id_usuario: idUser, nueva_password: password })
+                });
+                const data = await res.json();
+                msg.textContent = data.msg;
+                msg.style.color = res.ok ? '#00c896' : '#ff5b5b';
+                if (res.ok) {
+                    document.getElementById('nuevaPassword').value = '';
+                    document.getElementById('selUsuario').value = '';
+                    document.getElementById('resetForm').style.display = 'none';
+                }
+            } catch {
+                msg.textContent = 'Error de conexión.';
+                msg.style.color = '#ff5b5b';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Cambiar contraseña';
+        }
+
         loadProducts();
     </script>
+
+    <!-- Modal gestión de usuarios -->
+    <div class="modal-overlay" id="modalUsuarios">
+        <div class="modal" style="max-width:480px">
+            <button onclick="closeModalUsuarios()" style="position:absolute;top:16px;right:16px;background:transparent;border:none;color:#8a9bb0;font-size:20px;cursor:pointer">✕</button>
+            <div class="modal-title">👥 Gestión de usuarios</div>
+            <div class="modal-sub">Resetea la contraseña de un empleado</div>
+
+            <div class="field">
+                <label>Empleado</label>
+                <select id="selUsuario" style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;appearance:none">
+                    <option value="">— Selecciona un empleado —</option>
+                </select>
+            </div>
+
+            <div id="resetForm" style="display:none">
+                <div class="field">
+                    <label>Nueva contraseña</label>
+                    <input id="nuevaPassword" type="password" placeholder="Mínimo 6 caracteres"
+                        style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;outline:none">
+                </div>
+                <button id="btnReset" onclick="resetPassword()"
+                    style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00c896,#00a87a);color:#0a1628;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer">
+                    Cambiar contraseña
+                </button>
+            </div>
+
+            <p id="resetMsg" style="margin-top:14px;font-size:13px;text-align:center"></p>
+        </div>
+    </div>
 </body>
 </html>
