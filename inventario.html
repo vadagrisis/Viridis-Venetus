@@ -167,6 +167,9 @@
                 <option value="low">Stock bajo</option>
                 <option value="out">Sin stock</option>
             </select>
+            <select class="filter-select" id="filterAlmacen" onchange="filterTable()">
+                <option value="">Todos los almacenes</option>
+            </select>
         </div>
 
         <div class="table-wrapper">
@@ -178,6 +181,7 @@
                 <thead>
                     <tr>
                         <th>Producto</th>
+                        <th>Almacén</th>
                         <th>Unidad</th>
                         <th>Stock actual</th>
                         <th>Nivel</th>
@@ -186,7 +190,7 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr class="state-row"><td colspan="6"><span class="state-icon">⏳</span>Cargando productos...</td></tr>
+                    <tr class="state-row"><td colspan="7"><span class="state-icon">⏳</span>Cargando productos...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -277,7 +281,7 @@
                 let data;
                 try { data = JSON.parse(text); } catch {
                     document.getElementById('tableBody').innerHTML =
-                        `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>Respuesta inesperada del servidor.</td></tr>`;
+                        `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>Respuesta inesperada del servidor.</td></tr>`;
                     console.error('Respuesta no JSON:', text.substring(0, 200));
                     return;
                 }
@@ -285,7 +289,7 @@
                 // Si devuelve objeto en vez de array (error del servidor)
                 if (!Array.isArray(data)) {
                     document.getElementById('tableBody').innerHTML =
-                        `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>${data.msg || 'Error del servidor'}</td></tr>`;
+                        `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>${data.msg || 'Error del servidor'}</td></tr>`;
                     return;
                 }
 
@@ -293,9 +297,10 @@
                 renderKPIs(data);
                 renderTable(data);
                 populateModalSelect(data);
+                populateAlmacenFilter(data);
             } catch (e) {
                 document.getElementById('tableBody').innerHTML =
-                    `<tr class="state-row"><td colspan="6"><span class="state-icon">⚠️</span>No se pudo conectar con la API.</td></tr>`;
+                    `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>No se pudo conectar con la API.</td></tr>`;
                 console.error(e);
             }
         }
@@ -318,7 +323,7 @@
             document.getElementById('tableCount').textContent = `${data.length} producto${data.length !== 1 ? 's' : ''}`;
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="6"><span class="state-icon">📭</span>No se encontraron productos.</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">📭</span>No se encontraron productos.</td></tr>`;
                 return;
             }
 
@@ -328,6 +333,7 @@
                 return `
                 <tr>
                     <td><span class="product-name">${p.nombre}</span></td>
+                    <td style="color:var(--gray);font-size:13px">${p.almacen || '—'}</td>
                     <td style="color:var(--gray)">${p.unidad}</td>
                     <td>${p.stock % 1 === 0 ? p.stock : p.stock.toFixed(2)}</td>
                     <td>
@@ -354,12 +360,23 @@
         function filterTable() {
             const q  = document.getElementById('searchInput').value.toLowerCase();
             const st = document.getElementById('filterStatus').value;
+            const al = document.getElementById('filterAlmacen').value;
             const filtered = allProducts.filter(p => {
                 const matchQ  = p.nombre.toLowerCase().includes(q);
                 const matchSt = !st || getStatus(p.stock) === st;
-                return matchQ && matchSt;
+                const matchAl = !al || (p.almacen || '—') === al;
+                return matchQ && matchSt && matchAl;
             });
             renderTable(filtered);
+        }
+
+        function populateAlmacenFilter(data) {
+            const almacenes = [...new Set(data.map(p => p.almacen || '—'))].sort();
+            const sel = document.getElementById('filterAlmacen');
+            sel.innerHTML = '<option value="">Todos los almacenes</option>';
+            almacenes.forEach(a => {
+                sel.innerHTML += `<option value="${a}">${a}</option>`;
+            });
         }
 
         // ── Modal ─────────────────────────────────────────────────
@@ -429,6 +446,7 @@
             const rows = allProducts.map(p => ({
                 'ID':       p.id,
                 'Producto': p.nombre,
+                'Almacén':  p.almacen || '—',
                 'Unidad':   p.unidad,
                 'Stock':    p.stock,
                 'Estado':   { ok: 'En stock', low: 'Stock bajo', out: 'Sin stock' }[getStatus(p.stock)]
@@ -438,6 +456,7 @@
             ws['!cols'] = [
                 { wch: 8  },  // ID
                 { wch: 30 },  // Producto
+                { wch: 18 },  // Almacén
                 { wch: 12 },  // Unidad
                 { wch: 12 },  // Stock
                 { wch: 14 },  // Estado
