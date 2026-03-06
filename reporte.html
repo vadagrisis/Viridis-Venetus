@@ -856,28 +856,30 @@
     const LOGO_MIME = 'image/jpeg';
 
     const PALETTE = {
-        navy:      '07111F', darkBlue: '0D1A2D', midBlue: '0061A8',
-        lightBlue: '2390D8', accent:   '00C896', red:     'F05B5B',
-        yellow:    'F5C842', white:    'F0F4F8', gray:    '6D8099',
-        darkCard:  '111F35',
+        titleBg:  'F4F8FF', titleFt:  '0061A8',
+        hdrBg:    '0061A8', hdrFt:    'FFFFFF',
+        rowA:     'EAF5F0', rowB:     'FFFFFF',
+        footerBg: 'DDEEF8', footerFt: '0061A8',
+        gray:     '666666', black:    '000000',
+        green:    '1A7A4A', red:      'C0392B', amber:    'B07D00',
     };
 
     const TIPO_STYLE = {
-        ENTRADA: { bg: '0A2E1F', alt: '081F15', txt: '00C896', icon: '⬆' },
-        SALIDA:  { bg: '2E0A0A', alt: '1F0808', txt: 'F05B5B', icon: '⬇' },
-        MERMA:   { bg: '2E240A', alt: '1F180A', txt: 'F5C842', icon: '⚠' },
+        ENTRADA: { txt: '1A7A4A', icon: '⬆ ENTRADA' },
+        SALIDA:  { txt: 'C0392B', icon: '⬇ SALIDA' },
+        MERMA:   { txt: 'B07D00', icon: '⚠ MERMA' },
     };
 
     function xlFill(hex)  { return { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+hex} }; }
-    function xlFont(bold=false, color=PALETTE.white, size=10) {
+    function xlFont(bold=false, color=PALETTE.black, size=10) {
         return { bold, color:{argb:'FF'+color}, size, name:'Arial' };
     }
     function xlBorder() {
-        const s = { style:'thin', color:{argb:'FF1A2D45'} };
+        const s = { style:'thin', color:{argb:'FFD0DCE8'} };
         return { top:s, left:s, bottom:s, right:s };
     }
-    function xlCenter() { return { horizontal:'center', vertical:'middle', wrapText:true }; }
-    function xlLeft()   { return { horizontal:'left',   vertical:'middle' }; }
+    function xlCenter() { return { horizontal:'center', vertical:'middle', wrapText:false }; }
+    function xlLeft()   { return { horizontal:'left',   vertical:'middle', indent:1 }; }
 
     function applyCell(cell, value, { fill, font, border, alignment, numFmt } = {}) {
         cell.value = value;
@@ -888,192 +890,220 @@
         if (numFmt)    cell.numFmt    = numFmt;
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // RESUMEN — 5 columnas A:E, sin spacers, tema claro
+    // ─────────────────────────────────────────────────────────────
     function buildResumenSheet(wb, data, periodoLabel) {
-        const ws = wb.addWorksheet('Resumen', { properties: { tabColor: { argb: 'FF'+PALETTE.accent }}});
+        const ws = wb.addWorksheet('Resumen', { properties: { tabColor:{ argb:'FF0061A8' }}});
         ws.views = [{ showGridLines: false }];
 
         ws.columns = [
-            {width:3},{width:10},{width:18},{width:18},{width:18},{width:18},{width:18},{width:18},{width:18}
+            {width:24},{width:13},{width:13},{width:13},{width:13}
         ];
 
-        // Logo + Banner
-        ws.getRow(1).height = 8;
-        ws.getRow(2).height = 52;
-        ws.getRow(3).height = 52;
+        // ── Fila 1: Banner con logo ──────────────────────────────
+        ws.getRow(1).height = 34;
+        ws.mergeCells('A1:E1');
+        const banner = ws.getCell('A1');
+        banner.value     = '  Viridis Venetus  —  Reporte Diario de Movimientos';
+        banner.fill      = xlFill(PALETTE.titleBg);
+        banner.font      = xlFont(true, PALETTE.titleFt, 13);
+        banner.alignment = { horizontal:'left', vertical:'middle', indent:6 };
 
-        // Logo cell background
-        ['B','C','D','E','F','G','H','I'].forEach(col => {
-            ws.getCell(`${col}2`).fill = xlFill(PALETTE.navy);
-            ws.getCell(`${col}3`).fill = xlFill(PALETTE.navy);
-        });
-
-        // Embed logo image
         const logoId = wb.addImage({ base64: LOGO_B64, extension: 'jpeg' });
-        ws.addImage(logoId, { tl:{col:1,row:1}, br:{col:2,row:3}, editAs:'oneCell' });
+        ws.addImage(logoId, { tl:{col:0, row:0}, br:{col:1, row:1}, editAs:'oneCell' });
 
-        // Company title next to logo
-        ws.mergeCells('C2:I3');
-        applyCell(ws.getCell('C2'),
-            'VIRIDIS VENETUS\nReporte de Movimientos',
-            { fill: xlFill(PALETTE.navy), font: xlFont(true, PALETTE.white, 16), alignment: { horizontal:'left', vertical:'middle', wrapText:true, indent:1 } }
-        );
+        // ── Fila 2: Subtítulo ────────────────────────────────────
+        ws.getRow(2).height = 18;
+        ws.mergeCells('A2:E2');
+        applyCell(ws.getCell('A2'),
+            `   Generado: ${new Date().toLocaleString('es-MX')}   |   Período: ${periodoLabel}`,
+            { fill: xlFill(PALETTE.rowB), font: xlFont(false, PALETTE.gray, 9),
+              alignment:{ horizontal:'left', vertical:'middle', indent:6 } });
 
-        // Sub-banner
-        ws.getRow(3).height = 8;
-        ws.getRow(4).height = 22;
-        ws.mergeCells('B4:I4');
-        applyCell(ws.getCell('B4'),
-            `Generado: ${new Date().toLocaleString('es-MX')}   |   Período: ${periodoLabel}`,
-            { fill: xlFill(PALETTE.darkBlue), font: xlFont(false, PALETTE.gray, 10), alignment: xlCenter() }
-        );
+        // ── Fila 3: Encabezado sección KPI ───────────────────────
+        ws.getRow(3).height = 22;
+        ws.mergeCells('A3:E3');
+        applyCell(ws.getCell('A3'), '  RESUMEN DE MOVIMIENTOS',
+            { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt, 10),
+              border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
 
-        ws.getRow(5).height = 14;
+        // ── Fila 4: KPI encabezados ──────────────────────────────
+        ws.getRow(4).height = 20;
+        ['Total','Entradas','Salidas','Mermas'].forEach((h, i) => {
+            const col = ['A','B','C','D'][i];
+            applyCell(ws.getCell(`${col}4`), h,
+                { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
+                  border: xlBorder(), alignment: xlCenter() });
+        });
+        applyCell(ws.getCell('E4'), 'Almacenes',
+            { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
+              border: xlBorder(), alignment: xlCenter() });
 
-        // KPI cards
+        // ── Fila 5: KPI valores ──────────────────────────────────
+        ws.getRow(5).height = 38;
         const entradas = data.filter(m=>m.tipo==='ENTRADA').length;
         const salidas  = data.filter(m=>m.tipo==='SALIDA').length;
         const mermas   = data.filter(m=>m.tipo==='MERMA').length;
+        const almCount = new Set(data.map(m=>m.almacen)).size;
 
-        const kpis = [
-            ['B6:C8', `📋 TOTAL\nMOVIMIENTOS`, data.length, PALETTE.midBlue,  PALETTE.lightBlue],
-            ['D6:E8', `⬆ ENTRADAS`,             entradas,   '005C3A',           PALETTE.accent],
-            ['F6:G8', `⬇ SALIDAS`,              salidas,    '7A1515',           PALETTE.red],
-            ['H6:I8', `⚠ MERMAS`,               mermas,     '7A5C00',           PALETTE.yellow],
-        ];
-        ws.getRow(6).height = 14;
-        ws.getRow(7).height = 36;
-        ws.getRow(8).height = 16;
-
-        for (const [range, label, value, bg] of kpis) {
-            ws.mergeCells(range);
-            const cell = ws.getCell(range.split(':')[0]);
-            applyCell(cell, `${label}\n${value}`,
-                { fill: xlFill(bg), font: xlFont(true, PALETTE.white, 13), alignment: xlCenter() }
-            );
-        }
-
-        ws.getRow(9).height = 14;
-
-        // Almacenes section header
-        ws.getRow(10).height = 22;
-        ws.mergeCells('B10:H10');
-        applyCell(ws.getCell('B10'), 'MOVIMIENTOS POR ALMACÉN',
-            { fill: xlFill(PALETTE.darkCard), font: xlFont(true, PALETTE.white, 11),
-              alignment: { horizontal:'left', vertical:'middle', indent:2 } }
-        );
-
-        // Almacenes header row
-        ws.getRow(11).height = 20;
-        ['Almacén','Entradas','Salidas','Mermas','Total'].forEach((h, i) => {
-            const col = ['B','C','D','E','F'][i];
-            applyCell(ws.getCell(`${col}11`), h,
-                { fill: xlFill(PALETTE.midBlue), font: xlFont(true), border: xlBorder(), alignment: xlCenter() }
-            );
+        [[data.length, PALETTE.titleFt],[entradas, PALETTE.green],
+         [salidas, PALETTE.red],[mermas, PALETTE.amber],[almCount, PALETTE.titleFt]
+        ].forEach(([v, color], i) => {
+            const col = ['A','B','C','D','E'][i];
+            applyCell(ws.getCell(`${col}5`), v,
+                { fill: xlFill(PALETTE.rowB), font: xlFont(true, color, 22),
+                  border: xlBorder(), alignment: xlCenter() });
         });
 
-        // Almacenes data
+        // ── Fila 6: KPI etiquetas ────────────────────────────────
+        ws.getRow(6).height = 16;
+        ['movimientos','entradas','salidas','mermas','almacenes activos'].forEach((lbl, i) => {
+            const col = ['A','B','C','D','E'][i];
+            applyCell(ws.getCell(`${col}6`), lbl,
+                { fill: xlFill(PALETTE.rowA), font: xlFont(false, PALETTE.gray, 9),
+                  border: xlBorder(), alignment: xlCenter() });
+        });
+
+        // ── Fila 7: Encabezado sección almacenes ─────────────────
+        ws.getRow(7).height = 22;
+        ws.mergeCells('A7:E7');
+        applyCell(ws.getCell('A7'), '  DESGLOSE POR ALMACÉN',
+            { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt, 10),
+              border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
+
+        // ── Fila 8: Encabezados tabla ────────────────────────────
+        ws.getRow(8).height = 20;
+        ['Almacén','Entradas','Salidas','Mermas','Total'].forEach((h, i) => {
+            const col = ['A','B','C','D','E'][i];
+            applyCell(ws.getCell(`${col}8`), h,
+                { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
+                  border: xlBorder(), alignment: xlCenter() });
+        });
+
+        // ── Filas de datos almacenes ─────────────────────────────
         const almStats = {};
         data.forEach(m => {
-            if (!almStats[m.almacen]) almStats[m.almacen] = {ENTRADA:0, SALIDA:0, MERMA:0};
+            if (!almStats[m.almacen]) almStats[m.almacen] = {ENTRADA:0,SALIDA:0,MERMA:0};
             almStats[m.almacen][m.tipo]++;
         });
 
-        Object.entries(almStats).sort().forEach(([alm, stats], idx) => {
-            const r = 12 + idx;
+        Object.entries(almStats).sort().forEach(([alm, s], idx) => {
+            const r  = 9 + idx;
+            const bg = idx % 2 === 0 ? PALETTE.rowB : PALETTE.rowA;
             ws.getRow(r).height = 18;
-            const bg = idx % 2 === 0 ? '0F1E35' : PALETTE.darkBlue;
-            const vals = [alm, stats.ENTRADA, stats.SALIDA, stats.MERMA,
-                          stats.ENTRADA + stats.SALIDA + stats.MERMA];
-            vals.forEach((v, i) => {
-                const col = ['B','C','D','E','F'][i];
+            [[alm,    xlLeft(),   xlFont(true,  PALETTE.black)],
+             [s.ENTRADA,xlCenter(),xlFont(false, PALETTE.green)],
+             [s.SALIDA, xlCenter(),xlFont(false, PALETTE.red)],
+             [s.MERMA,  xlCenter(),xlFont(false, PALETTE.amber)],
+             [s.ENTRADA+s.SALIDA+s.MERMA, xlCenter(), xlFont(true, PALETTE.titleFt)]
+            ].forEach(([v, al, fn], i) => {
+                const col = ['A','B','C','D','E'][i];
                 applyCell(ws.getCell(`${col}${r}`), v,
-                    { fill: xlFill(bg), font: xlFont(false), border: xlBorder(),
-                      alignment: i === 0 ? xlLeft() : xlCenter() }
-                );
+                    { fill: xlFill(bg), font: fn, border: xlBorder(), alignment: al });
             });
         });
+
+        // ── Fila totales ─────────────────────────────────────────
+        const lastR = 9 + Object.keys(almStats).length;
+        ws.getRow(lastR).height = 20;
+        ws.mergeCells(`A${lastR}:C${lastR}`);
+        applyCell(ws.getCell(`A${lastR}`),
+            `TOTALES — ${Object.keys(almStats).length} almacenes`,
+            { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.footerFt, 10),
+              border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
+        ['D','E'].forEach(col => {
+            ws.getCell(`${col}${lastR}`).fill   = xlFill(PALETTE.footerBg);
+            ws.getCell(`${col}${lastR}`).border = xlBorder();
+        });
+        const totalCell = ws.getCell(`E${lastR}`);
+        totalCell.value     = { formula: `SUM(E9:E${lastR-1})` };
+        totalCell.font      = xlFont(true, PALETTE.footerFt);
+        totalCell.fill      = xlFill(PALETTE.footerBg);
+        totalCell.border    = xlBorder();
+        totalCell.alignment = xlCenter();
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // DETALLE — columnas A:H, sin spacer, tema claro
+    // ─────────────────────────────────────────────────────────────
     function buildMovimientosSheet(wb, data, sheetName, tabColor) {
         const ws = wb.addWorksheet(sheetName, { properties: { tabColor:{ argb:'FF'+tabColor }}});
-        ws.views = [{ showGridLines: false, state:'frozen', ySplit:4, xSplit:1 }];
+        ws.views = [{ showGridLines: false, state:'frozen', ySplit:3, xSplit:0 }];
 
         ws.columns = [
-            {width:3},{width:8},{width:30},{width:12},{width:10},{width:12},{width:18},{width:22}
+            {width:6},{width:7},{width:30},{width:12},{width:10},{width:14},{width:18},{width:22}
         ];
 
-        // Banner
-        ws.getRow(1).height = 8;
-        ws.getRow(2).height = 52;
-        ws.getRow(3).height = 52;
+        // ── Fila 1: Banner con logo ──────────────────────────────
+        ws.getRow(1).height = 34;
+        ws.mergeCells('A1:H1');
+        const banner = ws.getCell('A1');
+        banner.value     = `  VIRIDIS VENETUS  —  ${sheetName}  (${data.length} registros)`;
+        banner.fill      = xlFill(PALETTE.titleBg);
+        banner.font      = xlFont(true, PALETTE.titleFt, 13);
+        banner.alignment = { horizontal:'left', vertical:'middle', indent:6 };
 
-        ['B','C','D','E','F','G','H'].forEach(col => {
-            ws.getCell(`${col}2`).fill = xlFill(PALETTE.navy);
-            ws.getCell(`${col}3`).fill = xlFill(PALETTE.navy);
-        });
+        const logoId = wb.addImage({ base64: LOGO_B64, extension: 'jpeg' });
+        ws.addImage(logoId, { tl:{col:0, row:0}, br:{col:1, row:1}, editAs:'oneCell' });
 
-        const logoId2 = wb.addImage({ base64: LOGO_B64, extension: 'jpeg' });
-        ws.addImage(logoId2, { tl:{col:1,row:1}, br:{col:2,row:3}, editAs:'oneCell' });
+        // ── Fila 2: Subtítulo ────────────────────────────────────
+        ws.getRow(2).height = 18;
+        ws.mergeCells('A2:H2');
+        applyCell(ws.getCell('A2'),
+            `   Generado: ${new Date().toLocaleString('es-MX')}`,
+            { fill: xlFill(PALETTE.rowB), font: xlFont(false, PALETTE.gray, 9),
+              alignment:{ horizontal:'left', vertical:'middle', indent:6 } });
 
-        ws.mergeCells('C2:H3');
-        applyCell(ws.getCell('C2'), `VIRIDIS VENETUS\n${sheetName} — ${data.length} registros`,
-            { fill: xlFill(PALETTE.navy), font: xlFont(true, PALETTE.white, 14), alignment: { horizontal:'left', vertical:'middle', wrapText:true, indent:1 } }
-        );
-
-        ws.getRow(4).height = 22;
-
-        // Header
+        // ── Fila 3: Encabezados ──────────────────────────────────
+        ws.getRow(3).height = 22;
         ['#','ID','Producto','Cantidad','Unidad','Tipo','Almacén','Fecha y Hora'].forEach((h, i) => {
-            const col = ['B','C','D','E','F','G','H','I'][i];
-            applyCell(ws.getCell(`${col}4`), h,
-                { fill: xlFill(PALETTE.midBlue), font: xlFont(true), border: xlBorder(), alignment: xlCenter() }
-            );
+            const col = ['A','B','C','D','E','F','G','H'][i];
+            applyCell(ws.getCell(`${col}3`), h,
+                { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt),
+                  border: xlBorder(), alignment: xlCenter() });
         });
 
-        // Data rows
+        // ── Filas de datos ───────────────────────────────────────
         data.forEach((m, idx) => {
-            const rowNum = 5 + idx;
-            ws.getRow(rowNum).height = 18;
-            const ts = TIPO_STYLE[m.tipo] || TIPO_STYLE.SALIDA;
-            const bg = idx % 2 === 0 ? ts.alt : ts.bg;
+            const r   = 4 + idx;
+            const ts  = TIPO_STYLE[m.tipo] || TIPO_STYLE.SALIDA;
+            const bg  = idx % 2 === 0 ? PALETTE.rowB : PALETTE.rowA;
             const qty = m.cantidad % 1 === 0 ? m.cantidad : parseFloat(m.cantidad).toFixed(2);
+            ws.getRow(r).height = 18;
 
-            const vals = [
-                [idx+1, xlCenter()], [m.id, xlCenter()], [m.producto, xlLeft()],
-                [qty,   xlCenter()], [m.unidad, xlCenter()],
-                [`${ts.icon} ${m.tipo}`, xlCenter()],
-                [m.almacen||'—', xlLeft()], [m.fecha, xlLeft()]
-            ];
-            vals.forEach(([v, align], i) => {
-                const col = ['B','C','D','E','F','G','H','I'][i];
-                const isTipo = i === 5;
-                applyCell(ws.getCell(`${col}${rowNum}`), v, {
-                    fill:      xlFill(bg),
-                    font:      xlFont(isTipo, isTipo ? ts.txt : PALETTE.white),
-                    border:    xlBorder(),
-                    alignment: align,
-                });
+            [[idx+1,          xlCenter(), xlFont(false, PALETTE.gray)],
+             [m.id,            xlCenter(), xlFont(false, PALETTE.gray)],
+             [m.producto,      xlLeft(),   xlFont(true,  PALETTE.black)],
+             [qty,             xlCenter(), xlFont(false, PALETTE.black)],
+             [m.unidad,        xlCenter(), xlFont(false, PALETTE.gray)],
+             [ts.icon,         xlCenter(), xlFont(true,  ts.txt)],
+             [m.almacen||'—',  xlLeft(),   xlFont(false, PALETTE.black)],
+             [m.fecha,         xlLeft(),   xlFont(false, PALETTE.gray)],
+            ].forEach(([v, al, fn], i) => {
+                const col = ['A','B','C','D','E','F','G','H'][i];
+                applyCell(ws.getCell(`${col}${r}`), v,
+                    { fill: xlFill(bg), font: fn, border: xlBorder(), alignment: al });
             });
         });
 
-        // Totals row
-        const last = 5 + data.length;
+        // ── Fila totales ─────────────────────────────────────────
+        const last = 4 + data.length;
         ws.getRow(last).height = 22;
-        ws.mergeCells(`B${last}:C${last}`);
-        applyCell(ws.getCell(`B${last}`), `TOTAL  —  ${data.length} movimientos`,
-            { fill: xlFill(PALETTE.darkCard), font: xlFont(true), border: xlBorder(), alignment: xlCenter() }
-        );
-        for (let ci = 4; ci <= 9; ci++) {
-            const col = ['B','C','D','E','F','G','H','I'][ci-2];
-            const cell = ws.getCell(`${col}${last}`);
-            cell.fill   = xlFill(PALETTE.darkCard);
-            cell.border = xlBorder();
-        }
-        // Sum of quantities
-        const qtyCell = ws.getCell(`E${last}`);
-        qtyCell.value     = { formula: `SUM(E5:E${last-1})` };
-        qtyCell.font      = xlFont(true, PALETTE.accent);
-        qtyCell.fill      = xlFill(PALETTE.darkCard);
+        ws.mergeCells(`A${last}:C${last}`);
+        applyCell(ws.getCell(`A${last}`), `TOTALES — ${data.length} movimientos`,
+            { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.footerFt),
+              border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
+
+        ['D','E','F','G','H'].forEach(col => {
+            ws.getCell(`${col}${last}`).fill   = xlFill(PALETTE.footerBg);
+            ws.getCell(`${col}${last}`).border = xlBorder();
+        });
+
+        const qtyCell     = ws.getCell(`D${last}`);
+        qtyCell.value     = { formula: `SUM(D4:D${last-1})` };
+        qtyCell.font      = xlFont(true, PALETTE.footerFt);
+        qtyCell.fill      = xlFill(PALETTE.footerBg);
         qtyCell.border    = xlBorder();
         qtyCell.alignment = xlCenter();
         qtyCell.numFmt    = '#,##0.00';
@@ -1081,19 +1111,19 @@
 
     async function buildAndDownload(data, filename, periodoLabel) {
         const wb = new ExcelJS.Workbook();
-        wb.creator   = 'Viridis Venetus';
-        wb.created   = new Date();
+        wb.creator = 'Viridis Venetus';
+        wb.created = new Date();
 
         buildResumenSheet(wb, data, periodoLabel);
-        buildMovimientosSheet(wb, data, 'Movimientos', PALETTE.lightBlue);
+        buildMovimientosSheet(wb, data, 'Movimientos', '0061A8');
 
-        // Per-type sheets
-        for (const [tipo, color] of [['ENTRADA', PALETTE.accent], ['SALIDA', PALETTE.red], ['MERMA', PALETTE.yellow]]) {
+        for (const [tipo, color, nombre] of [
+            ['ENTRADA', '1A7A4A', 'Entradas'],
+            ['SALIDA',  'C0392B', 'Salidas'],
+            ['MERMA',   'B07D00', 'Mermas'],
+        ]) {
             const subset = data.filter(m => m.tipo === tipo);
-            if (subset.length) {
-                buildMovimientosSheet(wb, subset,
-                    tipo.charAt(0) + tipo.slice(1).toLowerCase() + 's', color);
-            }
+            if (subset.length) buildMovimientosSheet(wb, subset, nombre, color);
         }
 
         const buf  = await wb.xlsx.writeBuffer();
