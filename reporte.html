@@ -910,8 +910,6 @@
         banner.font      = xlFont(true, PALETTE.titleFt, 13);
         banner.alignment = { horizontal:'left', vertical:'middle', indent:6 };
 
-        const logoId = wb.addImage({ base64: LOGO_B64, extension: 'jpeg' });
-        ws.addImage(logoId, { tl:{col:0, row:0}, br:{col:1, row:1}, editAs:'oneCell' });
 
         // ── Fila 2: Subtítulo ────────────────────────────────────
         ws.getRow(2).height = 18;
@@ -1044,8 +1042,6 @@
         banner.font      = xlFont(true, PALETTE.titleFt, 13);
         banner.alignment = { horizontal:'left', vertical:'middle', indent:6 };
 
-        const logoId = wb.addImage({ base64: LOGO_B64, extension: 'jpeg' });
-        ws.addImage(logoId, { tl:{col:0, row:0}, br:{col:1, row:1}, editAs:'oneCell' });
 
         // ── Fila 2: Subtítulo ────────────────────────────────────
         ws.getRow(2).height = 18;
