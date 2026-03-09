@@ -565,6 +565,7 @@
                     <th>Producto</th>
                     <th>Cantidad</th>
                     <th>Unidad</th>
+                    <th>Lote</th>
                     <th>Tipo</th>
                     <th>Almacén</th>
                     <th>Fecha y hora</th>
@@ -572,7 +573,7 @@
             </thead>
             <tbody id="tableBody">
                 <tr class="state-row">
-                    <td colspan="7">
+                    <td colspan="8">
                         <span class="state-icon">📋</span>
                         Selecciona un rango de fechas y presiona Consultar.
                         <div class="state-sub">Los movimientos del período seleccionado aparecerán aquí</div>
@@ -669,7 +670,7 @@
 
         // Loading state
         tbody.innerHTML = `
-            <tr class="state-row"><td colspan="7">
+            <tr class="state-row"><td colspan="8">
                 <span class="state-icon">⏳</span>
                 Cargando movimientos…
             </td></tr>`;
@@ -700,7 +701,7 @@
             renderTable(data);
 
         } catch(e) {
-            tbody.innerHTML = `<tr class="state-row"><td colspan="7">
+            tbody.innerHTML = `<tr class="state-row"><td colspan="8">
                 <span class="state-icon">⚠️</span>
                 Error al cargar datos: ${e.message}
             </td></tr>`;
@@ -821,7 +822,7 @@
             `${data.length} movimiento${data.length !== 1 ? 's' : ''}`;
 
         if (data.length === 0) {
-            tbody.innerHTML = `<tr class="state-row"><td colspan="7">
+            tbody.innerHTML = `<tr class="state-row"><td colspan="8">
                 <span class="state-icon">📭</span>
                 No hay movimientos en ese período.
                 <div class="state-sub">Prueba ajustando el rango de fechas o los filtros</div>
@@ -832,12 +833,16 @@
         tbody.innerHTML = data.map(m => {
             const qty = m.cantidad % 1 === 0 ? m.cantidad : parseFloat(m.cantidad).toFixed(2);
             const tipoIcon = m.tipo === 'ENTRADA' ? '⬆' : m.tipo === 'MERMA' ? '⚠' : '⬇';
+            const loteBadge = m.lote
+                ? `<span style="background:rgba(0,97,168,0.12);color:#2390d8;border:1px solid rgba(0,97,168,0.25);padding:3px 9px;border-radius:12px;font-size:11.5px;font-weight:600;">${m.lote}</span>`
+                : `<span style="color:var(--gray);font-size:12px;">—</span>`;
             return `
             <tr>
                 <td class="cell-id">#${m.id}</td>
                 <td class="cell-product">${m.producto}</td>
                 <td class="cell-qty">${qty}</td>
                 <td class="cell-unit">${m.unidad}</td>
+                <td>${loteBadge}</td>
                 <td>
                     <span class="tipo-badge tipo-${m.tipo.toLowerCase()}">
                         ${tipoIcon} ${m.tipo}
@@ -1030,12 +1035,12 @@
         ws.views = [{ showGridLines: false, state:'frozen', ySplit:3, xSplit:0 }];
 
         ws.columns = [
-            {width:6},{width:7},{width:30},{width:12},{width:10},{width:14},{width:18},{width:22}
+            {width:6},{width:7},{width:30},{width:12},{width:10},{width:16},{width:14},{width:18},{width:22}
         ];
 
         // ── Fila 1: Banner con logo ──────────────────────────────
         ws.getRow(1).height = 34;
-        ws.mergeCells('A1:H1');
+        ws.mergeCells('A1:I1');
         const banner = ws.getCell('A1');
         banner.value     = `  VIRIDIS VENETUS  —  ${sheetName}  (${data.length} registros)`;
         banner.fill      = xlFill(PALETTE.titleBg);
@@ -1045,7 +1050,7 @@
 
         // ── Fila 2: Subtítulo ────────────────────────────────────
         ws.getRow(2).height = 18;
-        ws.mergeCells('A2:H2');
+        ws.mergeCells('A2:I2');
         applyCell(ws.getCell('A2'),
             `   Generado: ${new Date().toLocaleString('es-MX')}`,
             { fill: xlFill(PALETTE.rowB), font: xlFont(false, PALETTE.gray, 9),
@@ -1053,8 +1058,8 @@
 
         // ── Fila 3: Encabezados ──────────────────────────────────
         ws.getRow(3).height = 22;
-        ['#','ID','Producto','Cantidad','Unidad','Tipo','Almacén','Fecha y Hora'].forEach((h, i) => {
-            const col = ['A','B','C','D','E','F','G','H'][i];
+        ['#','ID','Producto','Cantidad','Unidad','Lote','Tipo','Almacén','Fecha y Hora'].forEach((h, i) => {
+            const col = ['A','B','C','D','E','F','G','H','I'][i];
             applyCell(ws.getCell(`${col}3`), h,
                 { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt),
                   border: xlBorder(), alignment: xlCenter() });
@@ -1073,11 +1078,12 @@
              [m.producto,      xlLeft(),   xlFont(true,  PALETTE.black)],
              [qty,             xlCenter(), xlFont(false, PALETTE.black)],
              [m.unidad,        xlCenter(), xlFont(false, PALETTE.gray)],
+             [m.lote||'—',     xlCenter(), xlFont(false, PALETTE.titleFt)],
              [ts.icon,         xlCenter(), xlFont(true,  ts.txt)],
              [m.almacen||'—',  xlLeft(),   xlFont(false, PALETTE.black)],
              [m.fecha,         xlLeft(),   xlFont(false, PALETTE.gray)],
             ].forEach(([v, al, fn], i) => {
-                const col = ['A','B','C','D','E','F','G','H'][i];
+                const col = ['A','B','C','D','E','F','G','H','I'][i];
                 applyCell(ws.getCell(`${col}${r}`), v,
                     { fill: xlFill(bg), font: fn, border: xlBorder(), alignment: al });
             });
@@ -1091,7 +1097,7 @@
             { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.footerFt),
               border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
 
-        ['D','E','F','G','H'].forEach(col => {
+        ['D','E','F','G','H','I'].forEach(col => {
             ws.getCell(`${col}${last}`).fill   = xlFill(PALETTE.footerBg);
             ws.getCell(`${col}${last}`).border = xlBorder();
         });
@@ -1156,4 +1162,3 @@
 </script>
 </body>
 </html>
-
