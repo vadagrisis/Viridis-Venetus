@@ -130,13 +130,14 @@
                         <th>Producto</th>
                         <th>Cantidad</th>
                         <th>Unidad</th>
+                        <th>Lote</th>
                         <th>Almacén</th>
                         <th>Empleado</th>
                         <th>Fecha</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr class="state-row"><td colspan="7"><span class="state-icon">⚠</span>Selecciona un período y consulta.</td></tr>
+                    <tr class="state-row"><td colspan="8"><span class="state-icon">⚠</span>Selecciona un período y consulta.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -178,7 +179,7 @@
             const inicio = document.getElementById('fechaInicio').value;
             const fin    = document.getElementById('fechaFin').value;
             const tbody  = document.getElementById('tableBody');
-            tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">⏳</span>Cargando mermas...</td></tr>`;
+            tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⏳</span>Cargando mermas...</td></tr>`;
 
             try {
                 let url = `${API}/mermas`;
@@ -189,7 +190,7 @@
                 renderTable(data);
                 renderStats(data);
             } catch(e) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>Error: ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⚠️</span>Error: ${e.message}</td></tr>`;
             }
         }
 
@@ -217,27 +218,32 @@
             const tbody = document.getElementById('tableBody');
             document.getElementById('tableCount').textContent = `${data.length} registro${data.length !== 1 ? 's' : ''}`;
             if (!data.length) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="7"><span class="state-icon">✅</span>Sin mermas en este período.</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">✅</span>Sin mermas en este período.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = data.map(m => `
+            tbody.innerHTML = data.map(m => {
+                const loteBadge = m.lote
+                    ? `<span style="background:rgba(0,97,168,0.12);color:#2390d8;border:1px solid rgba(0,97,168,0.25);padding:3px 9px;border-radius:12px;font-size:11.5px;font-weight:600;">${m.lote}</span>`
+                    : `<span style="color:var(--gray);font-size:12px;">—</span>`;
+                return `
                 <tr>
                     <td style="color:var(--gray);font-size:12px">#${m.id}</td>
                     <td style="font-weight:500">${m.producto}</td>
                     <td style="color:var(--yellow);font-weight:600">${parseFloat(m.cantidad).toFixed(2)}</td>
                     <td style="color:var(--gray)">${m.unidad}</td>
+                    <td>${loteBadge}</td>
                     <td style="color:var(--gray)">${m.almacen || '—'}</td>
                     <td>${m.empleado || '—'}</td>
                     <td style="color:var(--gray);font-size:13px">${m.fecha}</td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
         function exportExcel() {
             if (!allMermas.length) { alert('No hay datos para exportar.'); return; }
-            const rows = allMermas.map(m => ({ 'ID': m.id, 'Producto': m.producto, 'Cantidad': m.cantidad, 'Unidad': m.unidad, 'Almacén': m.almacen, 'Empleado': m.empleado, 'Fecha': m.fecha }));
+            const rows = allMermas.map(m => ({ 'ID': m.id, 'Producto': m.producto, 'Cantidad': m.cantidad, 'Unidad': m.unidad, 'Lote': m.lote || '—', 'Almacén': m.almacen, 'Empleado': m.empleado, 'Fecha': m.fecha }));
             const ws = XLSX.utils.json_to_sheet(rows);
-            ws['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
+            ws['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Mermas');
             const fecha = new Date().toISOString().slice(0,10);
