@@ -103,6 +103,7 @@
         @media (max-width: 900px) { .main { padding: 32px 20px; } .topbar { padding: 18px 20px; } .kpi-grid { grid-template-columns: repeat(2,1fr); } .page-header { flex-direction: column; align-items: flex-start; gap: 16px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
 <body>
     <header class="topbar">
@@ -405,22 +406,155 @@
             }
         }
 
-        // ── Exportar Excel con bordes (backend openpyxl) ─────────────
+        // ── Exportar Excel (cliente, ExcelJS) — hoja general + una por almacén ──
+        const INV_PALETTE = {
+            titleFt: '0061A8', hdrFt: 'FFFFFF',
+            gray: '888888', black: '000000',
+            green: '00875A', amber: 'C8960C', red: 'D93025',
+        };
+        const ALM_COLORS = {
+            'MarFil': { hdrBg: '0061A8', altBg: 'EBF3FB' },
+            'Río':    { hdrBg: '00875A', altBg: 'E3F5EC' },
+            'Mamut':  { hdrBg: '6B4C9A', altBg: 'F0EAF9' },
+        };
+
+        function invFill(hex) { return { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+hex } }; }
+        function invFont(bold=false, color=INV_PALETTE.black, size=10) {
+            return { bold, color:{ argb:'FF'+color }, size, name:'Arial' };
+        }
+        function invBorder() {
+            const s = { style:'thin', color:{ argb:'FFD0D7E2' } };
+            return { top:s, left:s, bottom:s, right:s };
+        }
+        function invCell(cell, value, { fill, font, border, alignment } = {}) {
+            cell.value = value;
+            if (fill)      cell.fill      = fill;
+            if (font)      cell.font      = font;
+            if (border)    cell.border    = border;
+            if (alignment) cell.alignment = alignment;
+        }
+
+        function buildInventarioSheet(wb, productos, sheetTitle, hdrBg, altBg, tabColor) {
+            const ws = wb.addWorksheet(sheetTitle, {
+                properties: { tabColor:{ argb:'FF'+tabColor } }
+            });
+            ws.views = [{ showGridLines:false, state:'frozen', ySplit:4, xSplit:0 }];
+            ws.columns = [
+                {width:8},{width:32},{width:14},{width:10},{width:12},{width:16}
+            ];
+
+            // Fila 1: Título
+            ws.getRow(1).height = 30;
+            ws.mergeCells('A1:F1');
+            invCell(ws.getCell('A1'), `VADAGRI — Inventario de Productos  |  ${sheetTitle}`, {
+                fill: invFill('F4F8FF'),
+                font: invFont(true, INV_PALETTE.titleFt, 13),
+                alignment: { horizontal:'left', vertical:'middle', indent:2 }
+            });
+
+            // Fila 2: Generado
+            ws.getRow(2).height = 16;
+            ws.mergeCells('A2:F2');
+            invCell(ws.getCell('A2'), `   Generado: ${new Date().toLocaleString('es-MX')}`, {
+                fill: invFill('FFFFFF'),
+                font: invFont(false, INV_PALETTE.gray, 9),
+                alignment: { horizontal:'left', vertical:'middle', indent:2 }
+            });
+
+            // Fila 3: espacio
+            ws.getRow(3).height = 6;
+
+            // Fila 4: Encabezados
+            ws.getRow(4).height = 22;
+            ['ID','Producto','Almacén','Unidad','Stock','Estado'].forEach((h, i) => {
+                const col = ['A','B','C','D','E','F'][i];
+                invCell(ws.getCell(`${col}4`), h, {
+                    fill: invFill(hdrBg),
+                    font: invFont(true, 'FFFFFF', 10),
+                    border: invBorder(),
+                    alignment: { horizontal:'center', vertical:'middle' }
+                });
+            });
+
+            // Datos
+            let totalStock = 0, sinStock = 0, bajo = 0;
+            productos.forEach((p, idx) => {
+                const r   = 5 + idx;
+                const alt = idx % 2 === 1;
+                const bg  = alt ? altBg : 'FFFFFF';
+                const st  = getStatus(p.stock);
+                const stLabel = statusLabel[st];
+                const stColor = st === 'ok' ? INV_PALETTE.green : st === 'low' ? INV_PALETTE.amber : INV_PALETTE.red;
+
+                ws.getRow(r).height = 20;
+                [
+                    [p.id,            { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
+                    [p.nombre,        { horizontal:'left',   vertical:'middle', indent:1 }, true, INV_PALETTE.black],
+                    [p.almacen||'—',  { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.black],
+                    [p.unidad,        { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
+                    [p.stock % 1 === 0 ? p.stock : parseFloat(p.stock).toFixed(2),
+                                      { horizontal:'center', vertical:'middle' }, true, INV_PALETTE.black],
+                    [stLabel,         { horizontal:'center', vertical:'middle' }, true, stColor],
+                ].forEach(([val, align, bold, color], ci) => {
+                    const col = ['A','B','C','D','E','F'][ci];
+                    invCell(ws.getCell(`${col}${r}`), val, {
+                        fill: invFill(bg),
+                        font: invFont(bold, color, 10),
+                        border: invBorder(),
+                        alignment: align
+                    });
+                });
+
+                totalStock += Number(p.stock) || 0;
+                if (st === 'out') sinStock++;
+                if (st === 'low') bajo++;
+            });
+
+            // Fila totales
+            const lastR = 5 + productos.length;
+            ws.getRow(lastR).height = 22;
+            ws.mergeCells(`A${lastR}:B${lastR}`);
+            invCell(ws.getCell(`A${lastR}`), `TOTALES — ${productos.length} productos`, {
+                fill: invFill('DDEEF8'), font: invFont(true, INV_PALETTE.titleFt, 10),
+                border: invBorder(), alignment: { horizontal:'left', vertical:'middle', indent:2 }
+            });
+            ['C','D'].forEach(col => {
+                ws.getCell(`${col}${lastR}`).fill   = invFill('DDEEF8');
+                ws.getCell(`${col}${lastR}`).border = invBorder();
+            });
+            invCell(ws.getCell(`E${lastR}`), totalStock, {
+                fill: invFill('DDEEF8'), font: invFont(true, INV_PALETTE.titleFt, 10),
+                border: invBorder(), alignment: { horizontal:'center', vertical:'middle' }
+            });
+            invCell(ws.getCell(`F${lastR}`), `${sinStock} sin stock | ${bajo} bajo`, {
+                fill: invFill('DDEEF8'), font: invFont(false, INV_PALETTE.gray, 9),
+                border: invBorder(), alignment: { horizontal:'center', vertical:'middle' }
+            });
+        }
+
         async function exportExcel() {
             if (!allProducts.length) { alert('No hay productos para exportar.'); return; }
             const btn = document.getElementById('btnExport');
             btn.disabled    = true;
             btn.textContent = '⏳ Generando...';
             try {
-                const res = await fetch(`${API}/exportar_inventario`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('viridis-venetus_token')}` }
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    alert(err.msg || 'Error al generar el archivo Excel.');
-                    return;
+                const wb = new ExcelJS.Workbook();
+                wb.creator = 'VADAGRI - Viridis Venetus';
+                wb.created = new Date();
+
+                // Hoja general con todos los productos
+                buildInventarioSheet(wb, allProducts, 'Inventario General', '0061A8', 'EBF3FB', '0061A8');
+
+                // Una hoja por cada almacén presente en los datos
+                const almacenes = [...new Set(allProducts.map(p => p.almacen || '—'))].sort();
+                for (const alm of almacenes) {
+                    const c   = ALM_COLORS[alm] || { hdrBg:'444444', altBg:'F5F5F5' };
+                    const sub = allProducts.filter(p => (p.almacen || '—') === alm);
+                    buildInventarioSheet(wb, sub, alm, c.hdrBg, c.altBg, c.hdrBg);
                 }
-                const blob = await res.blob();
+
+                const buf  = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 const url  = URL.createObjectURL(blob);
                 const a    = document.createElement('a');
                 a.href     = url;
@@ -429,8 +563,9 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-            } catch {
-                alert('Error de conexión al exportar.');
+            } catch(e) {
+                console.error(e);
+                alert('Error al generar el archivo Excel.');
             } finally {
                 btn.disabled    = false;
                 btn.textContent = '⬇ Exportar Excel';
