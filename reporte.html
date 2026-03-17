@@ -1116,6 +1116,7 @@
         wb.creator = 'Viridis Venetus';
         wb.created = new Date();
 
+        // ── Hojas generales ───────────────────────────────────────────
         buildResumenSheet(wb, data, periodoLabel);
         buildMovimientosSheet(wb, data, 'Movimientos', '0061A8');
 
@@ -1126,6 +1127,30 @@
         ]) {
             const subset = data.filter(m => m.tipo === tipo);
             if (subset.length) buildMovimientosSheet(wb, subset, nombre, color);
+        }
+
+        // ── Hojas por almacén (NUEVO) ─────────────────────────────────
+        const ALM_COLORS = {
+            'MarFil': '0061A8',
+            'Río':    '00875A',
+            'Mamut':  '6B4C9A',
+        };
+        const almacenes = [...new Set(data.map(m => m.almacen))].sort();
+
+        for (const alm of almacenes) {
+            const color  = ALM_COLORS[alm] || '444444';
+            const dataAlm = data.filter(m => m.almacen === alm);
+
+            buildMovimientosSheet(wb, dataAlm, alm, color);
+
+            for (const [tipo, tColor, nombre] of [
+                ['ENTRADA', '1A7A4A', 'Entradas'],
+                ['SALIDA',  'C0392B', 'Salidas'],
+                ['MERMA',   'B07D00', 'Mermas'],
+            ]) {
+                const subset = dataAlm.filter(m => m.tipo === tipo);
+                if (subset.length) buildMovimientosSheet(wb, subset, `${alm} — ${nombre}`, tColor);
+            }
         }
 
         const buf  = await wb.xlsx.writeBuffer();
