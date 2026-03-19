@@ -191,6 +191,10 @@
             <h2 class="modal-title">Registrar movimiento</h2>
             <p class="modal-sub">Actualiza el stock de un producto</p>
             <div class="field">
+                <label>Almacén</label>
+                <select id="mAlmacen" onchange="onAlmacenChange()"></select>
+            </div>
+            <div class="field">
                 <label>Producto</label>
                 <select id="mProducto"></select>
             </div>
@@ -280,7 +284,6 @@
                 allProducts = data;
                 renderKPIs(data);
                 renderTable(data);
-                populateModalSelect(data);
                 populateAlmacenFilter(data);
             } catch (e) {
                 document.getElementById('tableBody').innerHTML =
@@ -322,8 +325,8 @@
                     <td><span class="badge ${st}"><span class="badge-dot"></span>${statusLabel[st]}</span></td>
                     <td>
                         <div class="col-actions">
-                            <button class="action-btn" title="Entrada" onclick="quickMove(${p.id}, 'ENTRADA')">⬆</button>
-                            <button class="action-btn" title="Salida"  onclick="quickMove(${p.id}, 'SALIDA')">⬇</button>
+                            <button class="action-btn" title="Entrada" onclick="quickMove(${p.id}, 'ENTRADA', '${p.almacen}')">⬆</button>
+                            <button class="action-btn" title="Salida"  onclick="quickMove(${p.id}, 'SALIDA',  '${p.almacen}')">⬇</button>
                         </div>
                     </td>
                 </tr>`;
@@ -350,28 +353,54 @@
             almacenes.forEach(a => { sel.innerHTML += `<option value="${a}">${a}</option>`; });
         }
 
-        function populateModalSelect(data) {
-            const sel = document.getElementById('mProducto');
-            sel.innerHTML = data.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        // ── Modal: almacén → filtra productos ──────────────────────
+        function populateAlmacenModal(selectedAlm = null) {
+            const almacenes = [...new Set(allProducts.map(p => p.almacen || '—'))].sort();
+            const sel = document.getElementById('mAlmacen');
+            sel.innerHTML = almacenes.map(a =>
+                `<option value="${a}" ${a === selectedAlm ? 'selected' : ''}>${a}</option>`
+            ).join('');
         }
 
-        function openModal(id = null, tipo = null) {
+        function populateProductoModal(almacen, selectedId = null) {
+            const prods = allProducts.filter(p => (p.almacen || '—') === almacen);
+            const sel   = document.getElementById('mProducto');
+            sel.innerHTML = prods.map(p =>
+                `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.nombre}${p.stock !== undefined ? ' — stock: ' + p.stock : ''}</option>`
+            ).join('');
+        }
+
+        function onAlmacenChange() {
+            const alm = document.getElementById('mAlmacen').value;
+            populateProductoModal(alm);
+        }
+
+        function openModal(id = null, tipo = null, almacen = null) {
             document.getElementById('modalOverlay').classList.add('open');
             document.getElementById('modalError').classList.remove('show');
             document.getElementById('mCantidad').value = '';
             document.getElementById('mLote').value     = '';
-            if (id)   document.getElementById('mProducto').value = id;
+
+            // Populate almacén selector
+            const defaultAlm = almacen || [...new Set(allProducts.map(p => p.almacen || '—'))].sort()[0];
+            populateAlmacenModal(defaultAlm);
+
+            // Populate products filtered by almacén
+            populateProductoModal(defaultAlm, id);
+
             if (tipo) document.getElementById('mTipo').value = tipo;
         }
+
         function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
         function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
-        function quickMove(id, tipo) { openModal(id, tipo); }
+        function quickMove(id, tipo, almacen) { openModal(id, tipo, almacen); }
 
         async function registrarMovimiento() {
             const id_producto = parseInt(document.getElementById('mProducto').value);
             const tipo        = document.getElementById('mTipo').value;
             const cantidad    = parseFloat(document.getElementById('mCantidad').value);
             const lote        = document.getElementById('mLote').value.trim();
+            const almacen     = document.getElementById('mAlmacen').value;
             const errEl       = document.getElementById('modalError');
             const btn         = document.getElementById('btnSave');
             errEl.classList.remove('show');
@@ -383,7 +412,7 @@
             btn.disabled = true;
             btn.textContent = 'Guardando...';
             try {
-                const body = { id_producto, tipo, cantidad };
+                const body = { id_producto, tipo, cantidad, almacen };
                 if (lote) body.lote = lote;
                 const res  = await fetchAPI(`${API}/registrar_movimiento`, {
                     method: 'POST',
@@ -443,7 +472,6 @@
                 {width:8},{width:32},{width:14},{width:10},{width:12},{width:16}
             ];
 
-            // Fila 1: Título
             ws.getRow(1).height = 30;
             ws.mergeCells('A1:F1');
             invCell(ws.getCell('A1'), `VADAGRI — Inventario de Productos  |  ${sheetTitle}`, {
@@ -452,7 +480,6 @@
                 alignment: { horizontal:'left', vertical:'middle', indent:2 }
             });
 
-            // Fila 2: Generado
             ws.getRow(2).height = 16;
             ws.mergeCells('A2:F2');
             invCell(ws.getCell('A2'), `   Generado: ${new Date().toLocaleString('es-MX')}`, {
@@ -461,10 +488,8 @@
                 alignment: { horizontal:'left', vertical:'middle', indent:2 }
             });
 
-            // Fila 3: espacio
             ws.getRow(3).height = 6;
 
-            // Fila 4: Encabezados
             ws.getRow(4).height = 22;
             ['ID','Producto','Almacén','Unidad','Stock','Estado'].forEach((h, i) => {
                 const col = ['A','B','C','D','E','F'][i];
@@ -476,7 +501,6 @@
                 });
             });
 
-            // Datos
             let totalStock = 0, sinStock = 0, bajo = 0;
             productos.forEach((p, idx) => {
                 const r   = 5 + idx;
@@ -485,32 +509,27 @@
                 const st  = getStatus(p.stock);
                 const stLabel = statusLabel[st];
                 const stColor = st === 'ok' ? INV_PALETTE.green : st === 'low' ? INV_PALETTE.amber : INV_PALETTE.red;
-
                 ws.getRow(r).height = 20;
                 [
-                    [p.id,            { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
-                    [p.nombre,        { horizontal:'left',   vertical:'middle', indent:1 }, true, INV_PALETTE.black],
-                    [p.almacen||'—',  { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.black],
-                    [p.unidad,        { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
+                    [p.id,           { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
+                    [p.nombre,       { horizontal:'left',   vertical:'middle', indent:1 }, true, INV_PALETTE.black],
+                    [p.almacen||'—', { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.black],
+                    [p.unidad,       { horizontal:'center', vertical:'middle' }, false, INV_PALETTE.gray],
                     [p.stock % 1 === 0 ? p.stock : parseFloat(p.stock).toFixed(2),
-                                      { horizontal:'center', vertical:'middle' }, true, INV_PALETTE.black],
-                    [stLabel,         { horizontal:'center', vertical:'middle' }, true, stColor],
+                                     { horizontal:'center', vertical:'middle' }, true, INV_PALETTE.black],
+                    [stLabel,        { horizontal:'center', vertical:'middle' }, true, stColor],
                 ].forEach(([val, align, bold, color], ci) => {
                     const col = ['A','B','C','D','E','F'][ci];
                     invCell(ws.getCell(`${col}${r}`), val, {
-                        fill: invFill(bg),
-                        font: invFont(bold, color, 10),
-                        border: invBorder(),
-                        alignment: align
+                        fill: invFill(bg), font: invFont(bold, color, 10),
+                        border: invBorder(), alignment: align
                     });
                 });
-
                 totalStock += Number(p.stock) || 0;
                 if (st === 'out') sinStock++;
                 if (st === 'low') bajo++;
             });
 
-            // Fila totales
             const lastR = 5 + productos.length;
             ws.getRow(lastR).height = 22;
             ws.mergeCells(`A${lastR}:B${lastR}`);
@@ -542,10 +561,8 @@
                 wb.creator = 'VADAGRI - Viridis Venetus';
                 wb.created = new Date();
 
-                // Hoja general con todos los productos
                 buildInventarioSheet(wb, allProducts, 'Inventario General', '0061A8', 'EBF3FB', '0061A8');
 
-                // Una hoja por cada almacén presente en los datos
                 const almacenes = [...new Set(allProducts.map(p => p.almacen || '—'))].sort();
                 for (const alm of almacenes) {
                     const c   = ALM_COLORS[alm] || { hdrBg:'444444', altBg:'F5F5F5' };
