@@ -35,9 +35,13 @@
         .filters-row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
         .filter-field { display: flex; flex-direction: column; gap: 8px; }
         .filter-field label { font-size: 12px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; }
-        .filter-field input[type="date"] { padding: 11px 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
-        .filter-field input[type="date"]:focus { border-color: var(--yellow); }
+        .filter-field input[type="date"],
+        .filter-field select { padding: 11px 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+        .filter-field input[type="date"]:focus,
+        .filter-field select:focus { border-color: var(--yellow); }
         .filter-field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+        .filter-field select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9bb0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; min-width: 160px; }
+        .filter-field select option { background: #162033; color: var(--white); }
         .btn-buscar { padding: 11px 28px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--yellow), #d4a800); color: #0a1628; font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.2s, transform 0.15s; }
         .btn-buscar:hover { opacity: 0.9; transform: translateY(-1px); }
         .table-wrapper { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.25s ease forwards; }
@@ -110,6 +114,18 @@
                     <label>Fecha fin</label>
                     <input type="date" id="fechaFin">
                 </div>
+                <div class="filter-field">
+                    <label>Almacén</label>
+                    <select id="filterAlmacen" onchange="onAlmacenChange()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label>Producto</label>
+                    <select id="filterProducto">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
                 <button class="btn-buscar" onclick="loadMermas()">Consultar</button>
             </div>
         </div>
@@ -146,7 +162,8 @@
     <script>
         const API   = 'https://api-production-91c0.up.railway.app';
         let   token = localStorage.getItem('viridis-venetus_token');
-        let   allMermas = [];
+        let   allMermas    = [];   // filtered/displayed data
+        let   allMermasRaw = [];   // full dataset after date query
 
         window.addEventListener('pageshow', function() {
             if (!localStorage.getItem('viridis-venetus_token')) location.replace('login.html');
@@ -169,23 +186,67 @@
             return res;
         }
 
+        // ── Almacenes ─────────────────────────────────────────────────
+        async function loadAlmacenes() {
+            try {
+                const res  = await fetchConRefresh(`${API}/almacenes`);
+                const data = await res.json();
+                const sel  = document.getElementById('filterAlmacen');
+                sel.innerHTML = '<option value="">Todos</option>' +
+                    data.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
+            } catch {}
+        }
+
+        // ── Producto dropdown: se actualiza según almacén seleccionado ─
+        function onAlmacenChange() {
+            const almacen = document.getElementById('filterAlmacen').value;
+            const prodSel = document.getElementById('filterProducto');
+            const prevProd = prodSel.value;
+
+            // Filtra los productos del almacén (o todos si no hay almacén)
+            const source = almacen
+                ? allMermasRaw.filter(m => m.almacen === almacen)
+                : allMermasRaw;
+            const productos = [...new Set(source.map(m => m.producto))].sort();
+
+            prodSel.innerHTML = '<option value="">Todos</option>' +
+                productos.map(p => `<option value="${p}"${p === prevProd ? ' selected' : ''}>${p}</option>`).join('');
+        }
+
+        // ── Pobla el dropdown de productos con todos los datos ─────────
+        function poblarProductos(data) {
+            allMermasRaw = data;
+            onAlmacenChange(); // respeta almacén ya seleccionado
+        }
+
         const hoy = new Date().toISOString().slice(0, 10);
         const primerDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
         document.getElementById('fechaInicio').value = primerDiaMes;
         document.getElementById('fechaFin').value    = hoy;
+        loadAlmacenes();
         loadMermas();
 
         async function loadMermas() {
-            const inicio = document.getElementById('fechaInicio').value;
-            const fin    = document.getElementById('fechaFin').value;
-            const tbody  = document.getElementById('tableBody');
+            const inicio  = document.getElementById('fechaInicio').value;
+            const fin     = document.getElementById('fechaFin').value;
+            const almacen = document.getElementById('filterAlmacen').value;
+            const product = document.getElementById('filterProducto').value;
+            const tbody   = document.getElementById('tableBody');
             tbody.innerHTML = `<tr class="state-row"><td colspan="8"><span class="state-icon">⏳</span>Cargando mermas...</td></tr>`;
 
             try {
                 let url = `${API}/mermas`;
                 if (inicio && fin) url += `?fecha_inicio=${inicio}&fecha_fin=${fin}`;
                 const res  = await fetchConRefresh(url);
-                const data = await res.json();
+                let   data = await res.json();
+
+                // Pobla los dropdowns con todos los datos del período
+                poblarProductos(data);
+
+                // Aplica filtros cliente
+                if (almacen) data = data.filter(m => m.almacen === almacen);
+                if (product) data = data.filter(m => m.producto === product);
+
                 allMermas  = data;
                 renderTable(data);
                 renderStats(data);
