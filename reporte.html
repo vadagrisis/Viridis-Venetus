@@ -481,7 +481,7 @@
             </div>
             <div class="filter-field">
                 <label>Almacén</label>
-                <select id="filterAlmacen" class="field-input">
+                <select id="filterAlmacen" class="field-input" onchange="onAlmacenChange()">
                     <option value="">Todos</option>
                 </select>
             </div>
@@ -492,6 +492,12 @@
                     <option value="ENTRADA">Entradas</option>
                     <option value="SALIDA">Salidas</option>
                     <option value="MERMA">Mermas</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Producto</label>
+                <select id="filterProducto" class="field-input">
+                    <option value="">Todos</option>
                 </select>
             </div>
             <button class="btn-primary" onclick="loadReporte()">Consultar</button>
@@ -643,6 +649,24 @@
         } catch {}
     }
 
+    // ── Producto: se actualiza según almacén ─────────────────────────
+    let _allMovsRaw = [];
+
+    function onAlmacenChange() {
+        const almacen = document.getElementById('filterAlmacen').value;
+        const prodSel = document.getElementById('filterProducto');
+        const prev    = prodSel.value;
+        const source  = almacen ? _allMovsRaw.filter(m => m.almacen === almacen) : _allMovsRaw;
+        const prods   = [...new Set(source.map(m => m.producto))].sort();
+        prodSel.innerHTML = '<option value="">Todos</option>' +
+            prods.map(p => `<option value="${p}"${p === prev ? ' selected' : ''}>${p}</option>`).join('');
+    }
+
+    function poblarProductos(data) {
+        _allMovsRaw = data;
+        onAlmacenChange();
+    }
+
     // ── Meses ─────────────────────────────────────────────────────────
     function poblarMeses() {
         const sel   = document.getElementById('selectMes');
@@ -666,6 +690,7 @@
         const ff      = document.getElementById('fechaFin').value;
         const almacen = document.getElementById('filterAlmacen').value;
         const tipo    = document.getElementById('filterTipo').value;
+        const product = document.getElementById('filterProducto').value;
         const tbody   = document.getElementById('tableBody');
 
         // Loading state
@@ -690,10 +715,13 @@
 
             let data = await res.json();
 
+            poblarProductos(data);
+
             if (fi) data = data.filter(m => m.fecha >= fi);
             if (ff) data = data.filter(m => m.fecha <= ff + ' 23:59:59');
             if (almacen) data = data.filter(m => m.almacen === almacen);
             if (tipo)    data = data.filter(m => m.tipo === tipo);
+            if (product) data = data.filter(m => m.producto === product);
 
             allMovs = data;
             updateKpi(data);
