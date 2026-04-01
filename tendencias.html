@@ -87,7 +87,14 @@
         .change-down { color: var(--green); font-weight: 600; }
         .change-same { color: var(--gray); }
 
-        /* LOADING */
+        /* FILTROS */
+        .filters-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 28px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.12s ease forwards; }
+        .filters-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-field { display: flex; flex-direction: column; gap: 7px; }
+        .filter-field label { font-size: 11px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; }
+        .filter-field select { padding: 10px 34px 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 13.5px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9bb0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; min-width: 170px; cursor: pointer; }
+        .filter-field select:focus { border-color: var(--accent); }
+        .filter-field select option { background: #162033; }
         .loading-overlay { position: fixed; inset: 0; background: rgba(10,22,40,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
         .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
         .loading-text { color: var(--gray); font-size: 14px; }
@@ -128,6 +135,24 @@
         <button class="mode-btn active" onclick="cambiarModo('semanas')">Semana actual vs anterior</button>
         <button class="mode-btn" onclick="cambiarModo('meses')">Mes actual vs anterior</button>
         <button class="mode-btn" onclick="cambiarModo('ultimas4')">Últimas 4 semanas</button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-card">
+        <div class="filters-row">
+            <div class="filter-field">
+                <label>Almacén</label>
+                <select id="filterAlmacen" onchange="onAlmacenChange()">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label>Producto</label>
+                <select id="filterProducto">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+        </div>
     </div>
 
     <!-- KPIs -->
@@ -226,8 +251,42 @@ const API   = 'https://api-production-91c0.up.railway.app';
 const token = localStorage.getItem('viridis-venetus_token');
 let   modo  = 'semanas';
 let   chartBarras, chartDona, chartLinea, chartActividad;
+let   _rawCache = {}; // cache de datos crudos por periodo
 
 if (!token) { window.location.replace('login.html'); }
+
+// ── Almacenes ────────────────────────────────────────────────────────────────
+async function loadAlmacenes() {
+    try {
+        const res  = await fetch(`${API}/almacenes`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const sel  = document.getElementById('filterAlmacen');
+        sel.innerHTML = '<option value="">Todos</option>' +
+            data.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
+    } catch {}
+}
+
+// ── Producto: se actualiza con los datos cacheados ───────────────────────────
+function onAlmacenChange() {
+    const almacen = document.getElementById('filterAlmacen').value;
+    const prodSel = document.getElementById('filterProducto');
+    const prev    = prodSel.value;
+    const allData = Object.values(_rawCache).flat();
+    const source  = almacen ? allData.filter(m => m.almacen === almacen) : allData;
+    const prods   = [...new Set(source.map(m => m.producto))].sort();
+    prodSel.innerHTML = '<option value="">Todos</option>' +
+        prods.map(p => `<option value="${p}"${p === prev ? ' selected' : ''}>${p}</option>`).join('');
+    cargar();
+}
+
+// ── Aplicar filtros de almacén y producto a un dataset ───────────────────────
+function filtrarData(data) {
+    const almacen = document.getElementById('filterAlmacen').value;
+    const product = document.getElementById('filterProducto').value;
+    if (almacen) data = data.filter(m => m.almacen === almacen);
+    if (product) data = data.filter(m => m.producto === product);
+    return data;
+}
 
 // ── Utilidades de fecha ──────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -301,7 +360,21 @@ async function fetchAPI(url) {
 }
 
 async function fetchReporte(ini, fin) {
-    return fetchAPI(`${API}/reporte?fecha_inicio=${ini}&fecha_fin=${fin}`);
+    const key  = `${ini}__${fin}`;
+    if (!_rawCache[key]) {
+        const data = await fetchAPI(`${API}/reporte?fecha_inicio=${ini}&fecha_fin=${fin}`);
+        _rawCache[key] = data;
+        // Actualiza el dropdown de productos con todos los datos cacheados
+        const almacen = document.getElementById('filterAlmacen').value;
+        const prodSel = document.getElementById('filterProducto');
+        const prev    = prodSel.value;
+        const allData = Object.values(_rawCache).flat();
+        const source  = almacen ? allData.filter(m => m.almacen === almacen) : allData;
+        const prods   = [...new Set(source.map(m => m.producto))].sort();
+        prodSel.innerHTML = '<option value="">Todos</option>' +
+            prods.map(p => `<option value="${p}"${p === prev ? ' selected' : ''}>${p}</option>`).join('');
+    }
+    return filtrarData([..._rawCache[key]]);
 }
 
 // ── Procesamiento ────────────────────────────────────────────────────────────
@@ -626,14 +699,15 @@ async function cargar() {
 
 function cambiarModo(m) {
     modo = m;
+    _rawCache = {};
     document.querySelectorAll('.mode-btn').forEach((b, i) => {
         b.classList.toggle('active', ['semanas','meses','ultimas4'][i] === m);
     });
     cargar();
 }
 
+loadAlmacenes();
 cargar();
 </script>
 </body>
 </html>
-
