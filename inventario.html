@@ -72,6 +72,8 @@
         .badge.low    .badge-dot { background: var(--yellow); }
         .badge.out    { background: rgba(255,91,91,0.12); color: var(--red); }
         .badge.out    .badge-dot { background: var(--red); }
+        .badge-pt { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(0,97,168,0.18); color: #4db8ff; border: 1px solid rgba(0,97,168,0.35); letter-spacing: 0.5px; margin-left: 6px; vertical-align: middle; }
+        .badge-mp { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: rgba(0,200,150,0.15); color: #00c896; border: 1px solid rgba(0,200,150,0.35); letter-spacing: 0.5px; margin-left: 6px; vertical-align: middle; }
         .stock-bar-wrap { width: 80px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; display: inline-block; vertical-align: middle; overflow: hidden; }
         .stock-bar { height: 100%; border-radius: 4px; }
         .stock-bar.ok  { background: var(--green); }
@@ -329,7 +331,7 @@
                 const pct = Math.min(100, Math.max(0, p.stock > 0 ? Math.min(p.stock / 100 * 100, 100) : 0));
                 return `
                 <tr>
-                    <td><span class="product-name">${p.nombre}</span></td>
+                    <td><span class="product-name">${p.nombre}</span>${p.es_pt ? '<span class="badge-pt">PT</span>' : '<span class="badge-mp">MP</span>'}</td>
                     <td style="color:var(--gray);font-size:13px">${p.almacen || '—'}</td>
                     <td style="color:var(--gray)">${p.unidad}</td>
                     <td>${p.stock % 1 === 0 ? p.stock : p.stock.toFixed(2)}</td>
