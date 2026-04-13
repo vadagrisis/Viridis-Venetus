@@ -95,6 +95,22 @@
         .state-icon { font-size: 36px; display: block; margin-bottom: 12px; }
 
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        .pt-search-wrap { position: relative; }
+        .pt-search-input { width: 100%; padding: 11px 16px 11px 38px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+        .pt-search-input:focus { border-color: var(--accent); }
+        .pt-search-input::placeholder { color: var(--gray); }
+        .pt-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 13px; pointer-events: none; }
+        .pt-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #1a2840; border: 1px solid var(--border); border-radius: 10px; max-height: 210px; overflow-y: auto; z-index: 300; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .pt-dropdown.open { display: block; }
+        .pt-dropdown::-webkit-scrollbar { width: 4px; }
+        .pt-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+        .pt-group-label { padding: 7px 14px 4px; font-size: 10px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; background: rgba(0,97,168,0.1); }
+        .pt-option { padding: 9px 14px; font-size: 13px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 8px; }
+        .pt-option:last-child { border-bottom: none; }
+        .pt-option:hover { background: rgba(0,200,150,0.1); color: var(--accent); }
+        .pt-badge { display: inline-flex; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(0,97,168,0.22); color: #4db8ff; border: 1px solid rgba(0,97,168,0.35); }
+        .pt-stock { font-size: 11px; color: var(--gray); margin-left: auto; }
+        .pt-none { padding: 16px 14px; font-size: 13px; color: var(--gray); text-align: center; }
         @media (max-width: 900px) {
             .main { padding: 32px 20px; } .topbar { padding: 18px 20px; }
             .form-grid { grid-template-columns: 1fr; }
@@ -115,9 +131,10 @@
         <div class="page-header">
             <div>
                 <div class="page-badge">🏷️ Referencia</div>
-                <h1>Referencia</h1>
+                <h1>Módulo de Referencia</h1>
                 <p>Registra y consulta referencias de productos por almacén</p>
             </div>
+            <button onclick="exportRefExcel()" style="padding:10px 22px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--gray);font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:border-color 0.2s,color 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--white)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--gray)'">⬇ Exportar Excel</button>
         </div>
 
         <!-- KPIs -->
@@ -143,9 +160,16 @@
         <div class="form-card">
             <div class="form-title">➕ Nueva Referencia</div>
             <div class="form-grid">
-                <div class="field">
-                    <label>Nombre</label>
-                    <input type="text" id="fNombre" placeholder="Nombre del producto/lote" maxlength="120">
+                <div class="field" style="position:relative;">
+                    <label>Nombre <span style="color:#4db8ff;font-size:10px;font-weight:700;background:rgba(0,97,168,0.22);padding:1px 6px;border-radius:4px;border:1px solid rgba(0,97,168,0.35);margin-left:4px;">PT</span></label>
+                    <div class="pt-search-wrap">
+                        <span class="pt-search-icon">🔍</span>
+                        <input type="text" class="pt-search-input" id="fNombreSearch"
+                               placeholder="Buscar producto terminado..." autocomplete="off"
+                               oninput="onPTSearch()" onfocus="openPTDropdown()" onblur="onPTBlur()">
+                        <div class="pt-dropdown" id="ptDropdown"></div>
+                    </div>
+                    <input type="hidden" id="fNombre">
                 </div>
                 <div class="field">
                     <label>Almacén</label>
@@ -253,6 +277,10 @@
             }
         }
 
+        // ── PT products cache ─────────────────────────────────────────
+        let _ptProducts = [];
+        let _ptSelected = null;
+
         async function loadAlmacenes() {
             try {
                 const res  = await fetchAPI(`${API}/almacenes`);
@@ -261,6 +289,74 @@
                 sel.innerHTML = data.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
             } catch {}
         }
+
+        async function loadPTProducts() {
+            try {
+                const res  = await fetchAPI(`${API}/productos`);
+                const data = await res.json();
+                _ptProducts = Array.isArray(data) ? data.filter(p => p.es_pt) : [];
+            } catch {}
+        }
+
+        function renderPTDropdown(q) {
+            const dd = document.getElementById('ptDropdown');
+            const filtered = q
+                ? _ptProducts.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()))
+                : _ptProducts;
+
+            if (!filtered.length) {
+                dd.innerHTML = '<div class="pt-none">Sin productos PT encontrados</div>';
+                return;
+            }
+
+            // Group by almacén
+            const byAlm = {};
+            filtered.forEach(p => {
+                const a = p.almacen || '—';
+                if (!byAlm[a]) byAlm[a] = [];
+                byAlm[a].push(p);
+            });
+
+            dd.innerHTML = Object.entries(byAlm).sort().map(([alm, prods]) =>
+                `<div class="pt-group-label">📦 ${alm}</div>` +
+                prods.map(p => `
+                    <div class="pt-option" onmousedown="selectPT({id:${p.id},nombre:'${p.nombre.replace(/'/g,"\'")}',almacen:'${alm}'})">
+                        <span class="pt-badge">PT</span>
+                        <span>${p.nombre}</span>
+                        <span class="pt-stock">stock: ${p.stock ?? 0}</span>
+                    </div>`).join('')
+            ).join('');
+        }
+
+        function selectPT(p) {
+            _ptSelected = p;
+            document.getElementById('fNombre').value       = p.nombre;
+            document.getElementById('fNombreSearch').value = p.nombre;
+            // Auto-select matching almacén if available
+            const sel = document.getElementById('fAlmacen');
+            for (let opt of sel.options) {
+                if (opt.value === p.almacen) { sel.value = p.almacen; break; }
+            }
+            closePTDropdown();
+        }
+
+        function onPTSearch() {
+            _ptSelected = null;
+            document.getElementById('fNombre').value = '';
+            renderPTDropdown(document.getElementById('fNombreSearch').value);
+            openPTDropdown();
+        }
+
+        function openPTDropdown() {
+            renderPTDropdown(document.getElementById('fNombreSearch').value);
+            document.getElementById('ptDropdown').classList.add('open');
+        }
+
+        function closePTDropdown() {
+            document.getElementById('ptDropdown').classList.remove('open');
+        }
+
+        function onPTBlur() { setTimeout(closePTDropdown, 150); }
 
         function renderKPIs(data) {
             const hoy = new Date().toISOString().slice(0,10);
@@ -312,14 +408,15 @@
         }
 
         async function agregarReferencia() {
-            const nombre     = document.getElementById('fNombre').value.trim();
+            const nombre     = document.getElementById('fNombre').value.trim()
+                            || document.getElementById('fNombreSearch').value.trim();
             const referencia = document.getElementById('fReferencia').value.trim();
             const almacen    = document.getElementById('fAlmacen').value;
             const errEl      = document.getElementById('formError');
             const btn        = document.getElementById('btnAdd');
             errEl.classList.remove('show');
 
-            if (!nombre) { errEl.textContent = 'El nombre es obligatorio.'; errEl.classList.add('show'); return; }
+            if (!nombre) { errEl.textContent = 'Selecciona o escribe un nombre de producto PT.'; errEl.classList.add('show'); return; }
             if (!referencia) { errEl.textContent = 'La referencia no puede estar vacía.'; errEl.classList.add('show'); return; }
 
             btn.disabled = true; btn.textContent = 'Guardando...';
@@ -330,8 +427,10 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    document.getElementById('fNombre').value     = '';
-                    document.getElementById('fReferencia').value = '';
+                    document.getElementById('fNombre').value       = '';
+                    document.getElementById('fNombreSearch').value = '';
+                    document.getElementById('fReferencia').value   = '';
+                    _ptSelected = null;
                     await loadRefs();
                 } else {
                     errEl.textContent = data.msg || 'Error al guardar.';
@@ -350,7 +449,116 @@
             } catch { alert('Error de conexión'); }
         }
 
+        // ── Excel export ──────────────────────────────────────────────
+        async function exportRefExcel() {
+            if (!allRefs.length) { alert('No hay registros para exportar.'); return; }
+            // Lazy-load ExcelJS
+            if (typeof ExcelJS === 'undefined') {
+                await new Promise((res, rej) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js';
+                    s.onload = res; s.onerror = rej;
+                    document.head.appendChild(s);
+                });
+            }
+
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'VADAGRI - Viridis Venetus';
+            wb.created = new Date();
+
+            // ── Hoja general ──────────────────────────────────────
+            buildRefSheet(wb, allRefs, 'Todas las referencias', '0061A8');
+
+            // ── Hojas por almacén ─────────────────────────────────
+            const ALM_COLORS = { 'MarFil':'0061A8', 'Río':'00875A', 'Mamut':'6B4C9A' };
+            const alms = [...new Set(allRefs.map(r => r.almacen))].sort();
+            for (const alm of alms) {
+                const color = ALM_COLORS[alm] || '444444';
+                buildRefSheet(wb, allRefs.filter(r => r.almacen === alm), alm, color);
+            }
+
+            const buf  = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = `referencias_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        }
+
+        function buildRefSheet(wb, data, title, hdrBg) {
+            const ws = wb.addWorksheet(title, { properties:{ tabColor:{ argb:'FF'+hdrBg } } });
+            ws.views = [{ showGridLines:false, state:'frozen', ySplit:3 }];
+            ws.columns = [{width:20},{width:28},{width:46},{width:18},{width:22}];
+
+            const border = () => {
+                const s = { style:'thin', color:{ argb:'FFD0DCE8' } };
+                return { top:s, left:s, bottom:s, right:s };
+            };
+            const fill  = hex => ({ type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+hex } });
+            const font  = (bold=false, color='000000', size=10) => ({ bold, color:{ argb:'FF'+color }, size, name:'Arial' });
+            const align = (h='center') => ({ horizontal:h, vertical:'middle' });
+
+            // Banner
+            ws.getRow(1).height = 30;
+            ws.mergeCells('A1:E1');
+            Object.assign(ws.getCell('A1'), {
+                value: `  VADAGRI — Referencias PT  |  ${title}`,
+                fill: fill('F4F8FF'), font: font(true,'0061A8',13),
+                alignment: { horizontal:'left', vertical:'middle', indent:2 }
+            });
+
+            // Subtitle
+            ws.getRow(2).height = 16;
+            ws.mergeCells('A2:E2');
+            Object.assign(ws.getCell('A2'), {
+                value: `   Generado: ${new Date().toLocaleString('es-MX')}   |   ${data.length} registros`,
+                fill: fill('FFFFFF'), font: font(false,'888888',9),
+                alignment: { horizontal:'left', vertical:'middle', indent:2 }
+            });
+
+            // Headers
+            ws.getRow(3).height = 22;
+            ['Fecha','Nombre (PT)','Referencia','Almacén','Creado'].forEach((h,i) => {
+                const cell = ws.getCell(`${'ABCDE'[i]}3`);
+                cell.value = h; cell.fill = fill(hdrBg);
+                cell.font = font(true,'FFFFFF',10);
+                cell.border = border(); cell.alignment = align();
+            });
+
+            // Data rows
+            data.forEach((r,idx) => {
+                const row = 4 + idx;
+                const bg  = idx%2===0 ? 'F4F8FF' : 'FFFFFF';
+                ws.getRow(row).height = 18;
+                [
+                    [r.fecha.slice(0,10),   align(), font(false,'555555')],
+                    [r.nombre,              align('left'), font(true,'000000')],
+                    [r.referencia,          align('left'), font(false,'333333')],
+                    [r.almacen,             align(), font(false,'0061A8')],
+                    [r.fecha,               align(), font(false,'888888',9)],
+                ].forEach(([v,al,fn],i) => {
+                    const cell = ws.getCell(`${'ABCDE'[i]}${row}`);
+                    cell.value = v; cell.fill = fill(bg);
+                    cell.font = fn; cell.border = border(); cell.alignment = al;
+                });
+            });
+
+            // Total row
+            const last = 4 + data.length;
+            ws.getRow(last).height = 20;
+            ws.mergeCells(`A${last}:D${last}`);
+            const tc = ws.getCell(`A${last}`);
+            tc.value = `TOTAL — ${data.length} referencias`;
+            tc.fill = fill('DDEEF8'); tc.font = font(true,'0061A8',10);
+            tc.border = border(); tc.alignment = { horizontal:'left', vertical:'middle', indent:2 };
+            const ec = ws.getCell(`E${last}`);
+            ec.fill = fill('DDEEF8'); ec.border = border();
+        }
+
         loadAlmacenes();
+        loadPTProducts();
         loadRefs();
     </script>
 </body>
