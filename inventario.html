@@ -101,7 +101,26 @@
         .modal-actions .btn-save:hover { opacity: 0.9; }
         .modal-error { color: var(--red); font-size: 13px; margin-top: -12px; margin-bottom: 8px; display: none; }
         .modal-error.show { display: block; }
+        .prod-search-wrap { position: relative; }
+        .prod-search-input { width: 100%; padding: 12px 16px 12px 38px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+        .prod-search-input:focus { border-color: var(--accent); }
+        .prod-search-input::placeholder { color: var(--gray); }
+        .prod-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 14px; pointer-events: none; }
+        .prod-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #1a2840; border: 1px solid var(--border); border-radius: 10px; max-height: 200px; overflow-y: auto; z-index: 300; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .prod-dropdown.open { display: block; }
+        .prod-dropdown::-webkit-scrollbar { width: 4px; }
+        .prod-dropdown::-webkit-scrollbar-track { background: transparent; }
+        .prod-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+        .prod-option { padding: 10px 14px; font-size: 13px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .prod-option:last-child { border-bottom: none; }
+        .prod-option:hover, .prod-option.active { background: rgba(0,200,150,0.1); color: var(--accent); }
+        .prod-option .prod-stock { font-size: 11px; color: var(--gray); }
+        .prod-none { padding: 16px 14px; font-size: 13px; color: var(--gray); text-align: center; }
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        .tipo-toggle { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+        .tipo-btn { flex: 1; padding: 10px 0; border: none; background: transparent; color: var(--gray); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s, color 0.2s; letter-spacing: 0.4px; }
+        .tipo-btn.active-mp { background: rgba(0,200,150,0.18); color: #00c896; }
+        .tipo-btn.active-pt { background: rgba(0,97,168,0.22); color: #4db8ff; }
         @media (max-width: 900px) { .main { padding: 32px 20px; } .topbar { padding: 18px 20px; } .kpi-grid { grid-template-columns: repeat(2,1fr); } .page-header { flex-direction: column; align-items: flex-start; gap: 16px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -125,7 +144,8 @@
             </div>
             <div class="header-actions">
                 <button class="btn-secondary" id="btnExport" onclick="exportExcel()">⬇ Exportar Excel</button>
-                <button class="btn-primary"   onclick="openModal()">+ Registrar movimiento</button>
+                <button class="btn-secondary" onclick="openModal()">+ Registrar movimiento</button>
+                <button class="btn-primary"   onclick="openNuevoProductoModal()">+ Nuevo Producto</button>
             </div>
         </div>
 
@@ -187,6 +207,48 @@
         </div>
     </main>
 
+    <!-- Modal nuevo producto -->
+    <div class="modal-overlay" id="npOverlay" onclick="closeNPOutside(event)">
+        <div class="modal">
+            <h2 class="modal-title">Nuevo Producto</h2>
+            <p class="modal-sub">Agrega un producto al inventario</p>
+            <div class="field">
+                <label>Tipo de producto</label>
+                <div class="tipo-toggle">
+                    <button class="tipo-btn active-mp" id="tipoBtnMP" onclick="setTipo('MP')">🟢 MP — Materia Prima</button>
+                    <button class="tipo-btn" id="tipoBtnPT" onclick="setTipo('PT')">🔵 PT — Producto Terminado</button>
+                </div>
+            </div>
+            <div class="field">
+                <label>Nombre del producto</label>
+                <input type="text" id="npNombre" placeholder="Ej: Sulfato de potasio" maxlength="100">
+            </div>
+            <div class="field">
+                <label>Cantidad inicial</label>
+                <input type="number" id="npCantidad" min="0.01" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label>Unidad</label>
+                <select id="npUnidad">
+                    <option value="Pz">Pz — Pieza</option>
+                    <option value="kg">kg — Kilogramo</option>
+                    <option value="gm">gm — Gramo</option>
+                    <option value="L">L — Litro</option>
+                    <option value="ml">ml — Mililitro</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Número de lote <span style="color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <input type="text" id="npLote" maxlength="80" placeholder="Ej: LOT-2024-001">
+            </div>
+            <div class="modal-error" id="npError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeNP()">Cancelar</button>
+                <button class="btn-save" id="btnNPSave" onclick="guardarNuevoProducto()">Crear producto</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal registrar movimiento -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
         <div class="modal">
@@ -198,7 +260,14 @@
             </div>
             <div class="field">
                 <label>Producto</label>
-                <select id="mProducto"></select>
+                <div class="prod-search-wrap" id="prodSearchWrap">
+                    <span class="prod-search-icon">🔍</span>
+                    <input type="text" class="prod-search-input" id="mProductoSearch"
+                           placeholder="Buscar producto..." autocomplete="off"
+                           oninput="onProdSearch()" onfocus="openProdDropdown()" onblur="onProdBlur()">
+                    <div class="prod-dropdown" id="prodDropdown"></div>
+                </div>
+                <input type="hidden" id="mProducto">
             </div>
             <div class="field">
                 <label>Tipo</label>
@@ -377,12 +446,65 @@
             ).join('');
         }
 
+        let _prodList = [];   // products for current almacén
+        let _prodSelected = null;
+
         function populateProductoModal(almacen, selectedId = null) {
-            const prods = allProducts.filter(p => (p.almacen || '—') === almacen);
-            const sel   = document.getElementById('mProducto');
-            sel.innerHTML = prods.map(p =>
-                `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.nombre}${p.stock !== undefined && p.stock !== null ? ' — stock: ' + p.stock : ' — stock: 0'}</option>`
-            ).join('');
+            _prodList = allProducts.filter(p => (p.almacen || '—') === almacen);
+            document.getElementById('mProducto').value = '';
+            document.getElementById('mProductoSearch').value = '';
+            _prodSelected = null;
+            if (selectedId) {
+                const p = _prodList.find(p => p.id === selectedId);
+                if (p) selectProd(p, false);
+            }
+            renderProdDropdown('');
+        }
+
+        function renderProdDropdown(q) {
+            const dd = document.getElementById('prodDropdown');
+            const filtered = q
+                ? _prodList.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()))
+                : _prodList;
+            if (!filtered.length) {
+                dd.innerHTML = `<div class="prod-none">Sin resultados</div>`;
+            } else {
+                dd.innerHTML = filtered.map(p => {
+                    const stock = p.stock !== null && p.stock !== undefined ? p.stock : 0;
+                    return `<div class="prod-option${_prodSelected === p.id ? ' active' : ''}"
+                        onmousedown="selectProd({id:${p.id},nombre:'${p.nombre.replace(/'/g,"\'")}',stock:${stock}})">
+                        <span>${p.nombre}</span>
+                        <span class="prod-stock">stock: ${stock}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function selectProd(p, closeDD = true) {
+            _prodSelected = p.id;
+            document.getElementById('mProducto').value       = p.id;
+            document.getElementById('mProductoSearch').value = p.nombre;
+            if (closeDD) closeProdDropdown();
+        }
+
+        function onProdSearch() {
+            _prodSelected = null;
+            document.getElementById('mProducto').value = '';
+            renderProdDropdown(document.getElementById('mProductoSearch').value);
+            openProdDropdown();
+        }
+
+        function openProdDropdown() {
+            renderProdDropdown(document.getElementById('mProductoSearch').value);
+            document.getElementById('prodDropdown').classList.add('open');
+        }
+
+        function closeProdDropdown() {
+            document.getElementById('prodDropdown').classList.remove('open');
+        }
+
+        function onProdBlur() {
+            setTimeout(closeProdDropdown, 150);
         }
 
         function onAlmacenChange() {
@@ -393,8 +515,11 @@
         function openModal(id = null, tipo = null, almacen = null) {
             document.getElementById('modalOverlay').classList.add('open');
             document.getElementById('modalError').classList.remove('show');
-            document.getElementById('mCantidad').value = '';
-            document.getElementById('mLote').value     = '';
+            document.getElementById('mCantidad').value       = '';
+            document.getElementById('mLote').value          = '';
+            document.getElementById('mProductoSearch').value = '';
+            document.getElementById('mProducto').value       = '';
+            closeProdDropdown();
 
             // Populate almacén selector
             const defaultAlm = almacen || [...new Set(allProducts.map(p => p.almacen || '—'))].sort()[0];
@@ -412,6 +537,11 @@
 
         async function registrarMovimiento() {
             const id_producto = parseInt(document.getElementById('mProducto').value);
+            if (!id_producto) {
+                errEl.textContent = 'Selecciona un producto de la lista.';
+                errEl.classList.add('show');
+                return;
+            }
             const tipo        = document.getElementById('mTipo').value;
             const cantidad    = parseFloat(document.getElementById('mCantidad').value);
             const lote        = document.getElementById('mLote').value.trim();
@@ -608,6 +738,75 @@
             localStorage.removeItem('viridis-venetus_username');
             localStorage.removeItem('viridis-venetus_rol');
             location.replace('login.html');
+        }
+
+        // ── Nuevo Producto ────────────────────────────────────────────
+        let _tipoSeleccionado = 'MP';
+
+        function setTipo(t) {
+            _tipoSeleccionado = t;
+            document.getElementById('tipoBtnMP').className = 'tipo-btn' + (t==='MP' ? ' active-mp' : '');
+            document.getElementById('tipoBtnPT').className = 'tipo-btn' + (t==='PT' ? ' active-pt' : '');
+        }
+
+        function openNuevoProductoModal() {
+            document.getElementById('npOverlay').classList.add('open');
+            document.getElementById('npError').classList.remove('show');
+            document.getElementById('npNombre').value   = '';
+            document.getElementById('npCantidad').value = '';
+            document.getElementById('npLote').value     = '';
+            document.getElementById('npUnidad').value   = 'Pz';
+            setTipo('MP');
+        }
+
+        function closeNP() { document.getElementById('npOverlay').classList.remove('open'); }
+        function closeNPOutside(e) { if (e.target === document.getElementById('npOverlay')) closeNP(); }
+
+        async function guardarNuevoProducto() {
+            const nombre   = document.getElementById('npNombre').value.trim();
+            const cantidad = parseFloat(document.getElementById('npCantidad').value);
+            const unidad   = document.getElementById('npUnidad').value;
+            const lote     = document.getElementById('npLote').value.trim();
+            const errEl    = document.getElementById('npError');
+            const btn      = document.getElementById('btnNPSave');
+            errEl.classList.remove('show');
+
+            if (!nombre) {
+                errEl.textContent = 'El nombre es obligatorio.';
+                errEl.classList.add('show'); return;
+            }
+            if (!cantidad || cantidad <= 0) {
+                errEl.textContent = 'Ingresa una cantidad mayor a 0.';
+                errEl.classList.add('show'); return;
+            }
+
+            btn.disabled = true; btn.textContent = 'Creando...';
+            try {
+                const body = { nombre, cantidad, unidad, es_pt: _tipoSeleccionado === 'PT' };
+                if (lote) body.lote = lote;
+
+                // Almacén del modal de movimientos (mismo selector)
+                const almSel = document.getElementById('mAlmacen');
+                if (almSel && almSel.value) body.almacen = almSel.value;
+
+                const res  = await fetchAPI(`${API}/agregar_producto`, {
+                    method: 'POST',
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeNP();
+                    await loadProducts(true);
+                } else {
+                    errEl.textContent = data.msg || 'Error al crear producto.';
+                    errEl.classList.add('show');
+                }
+            } catch {
+                errEl.textContent = 'Error de conexión.';
+                errEl.classList.add('show');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Crear producto';
+            }
         }
 
         loadProducts();
