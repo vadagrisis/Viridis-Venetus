@@ -611,6 +611,23 @@
 
 </main>
 
+<!-- Modal editar almacén -->
+<div id="editAlmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+    <div style="background:#0d1a2d;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:36px;width:100%;max-width:400px;animation:fadeUp 0.3s ease;">
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;margin-bottom:6px;">Corregir almacén</h2>
+        <p style="color:#6d8099;font-size:13px;margin-bottom:24px;">Movimiento <span id="editMovId" style="color:#2390d8;font-weight:600;"></span></p>
+        <div style="margin-bottom:20px;">
+            <label style="font-size:11px;font-weight:600;color:#6d8099;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:8px;">Almacén</label>
+            <select id="editAlmSelect" style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:10px;color:#f0f4f8;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;appearance:none;cursor:pointer;"></select>
+        </div>
+        <div id="editAlmError" style="color:#f05b5b;font-size:13px;margin-bottom:12px;display:none;"></div>
+        <div style="display:flex;gap:12px;">
+            <button onclick="closeEditAlm()" style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);background:transparent;color:#6d8099;font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;">Cancelar</button>
+            <button id="editAlmSave" onclick="saveEditAlm()" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00c896,#00a87a);color:#06120d;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;">Guardar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const API   = 'https://api-production-91c0.up.railway.app';
     let   token = localStorage.getItem('viridis-venetus_token');
@@ -928,12 +945,75 @@
                         ${tipoIcon} ${m.tipo}
                     </span>
                 </td>
-                <td class="cell-store">${m.almacen || '—'}</td>
+                <td class="cell-store">
+                    ${m.almacen && m.almacen !== '—'
+                        ? m.almacen
+                        : `<span style="color:var(--gray)">—</span>
+                           <button onclick="openEditAlm(${m.id})" title="Corregir almacén"
+                               style="margin-left:6px;background:rgba(0,97,168,0.15);border:1px solid rgba(0,97,168,0.3);color:#2390d8;border-radius:6px;padding:2px 7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">✏ corregir</button>`
+                    }
+                </td>
                 <td><span style="background:rgba(255,255,255,0.05);border:1px solid var(--border);padding:3px 9px;border-radius:12px;font-size:11.5px;color:var(--gray-light,#aab);">${m.usuario || '—'}</span></td>
                 <td class="cell-date">${m.fecha}</td>
             </tr>`;
         }).join('');
     }
+
+    // ── Editar almacén de movimiento ─────────────────────────────────
+    let _editMovId = null;
+
+    async function openEditAlm(movId) {
+        _editMovId = movId;
+        document.getElementById('editMovId').textContent = '#' + movId;
+        document.getElementById('editAlmError').style.display = 'none';
+        // Load almacenes
+        try {
+            const res  = await fetchAuth(`${API}/almacenes`);
+            const data = await res.json();
+            const sel  = document.getElementById('editAlmSelect');
+            sel.innerHTML = data.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
+        } catch { return; }
+        const modal = document.getElementById('editAlmModal');
+        modal.style.display = 'flex';
+    }
+
+    function closeEditAlm() {
+        document.getElementById('editAlmModal').style.display = 'none';
+        _editMovId = null;
+    }
+
+    async function saveEditAlm() {
+        const almacen = document.getElementById('editAlmSelect').value;
+        const errEl   = document.getElementById('editAlmError');
+        const btn     = document.getElementById('editAlmSave');
+        errEl.style.display = 'none';
+        btn.disabled = true; btn.textContent = 'Guardando...';
+        try {
+            const res  = await fetchAuth(`${API}/movimientos/${_editMovId}/almacen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ almacen })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                closeEditAlm();
+                loadReporte(); // Refresh table
+            } else {
+                errEl.textContent = data.msg || 'Error al guardar.';
+                errEl.style.display = 'block';
+            }
+        } catch {
+            errEl.textContent = 'Error de conexión.';
+            errEl.style.display = 'block';
+        } finally {
+            btn.disabled = false; btn.textContent = 'Guardar';
+        }
+    }
+
+    // Click outside to close
+    document.getElementById('editAlmModal').addEventListener('click', function(e) {
+        if (e.target === this) closeEditAlm();
+    });
 
     // ── Export ────────────────────────────────────────────────────────
     // ── ExcelJS styled exports ────────────────────────────────────────
