@@ -533,17 +533,17 @@
         <div class="kpi-card blue" style="--kpi-color:rgba(77,184,255,0.08);--kpi-text:#4db8ff;">
             <div class="kpi-icon">💧</div>
             <div class="kpi-value" id="kpiLitrosGen">—</div>
-            <div class="kpi-label">Total L</div>
+            <div class="kpi-label">Litros generales</div>
         </div>
         <div class="kpi-card yellow" style="--kpi-color:rgba(245,200,66,0.08);--kpi-text:var(--yellow);">
             <div class="kpi-icon">⚠</div>
             <div class="kpi-value" id="kpiLitrosMerma">—</div>
-            <div class="kpi-label">Merma L</div>
+            <div class="kpi-label">Litros de merma</div>
         </div>
         <div class="kpi-card red" style="--kpi-color:rgba(240,91,91,0.08);--kpi-text:var(--red);">
             <div class="kpi-icon">⬇</div>
             <div class="kpi-value" id="kpiLitrosSalida">—</div>
-            <div class="kpi-label">Salida L</div>
+            <div class="kpi-label">Salida de litros</div>
         </div>
     </div>
 
@@ -982,12 +982,12 @@
         ws.views = [{ showGridLines: false }];
 
         ws.columns = [
-            {width:24},{width:13},{width:13},{width:13},{width:13}
+            {width:24},{width:13},{width:13},{width:13},{width:13},{width:16},{width:16},{width:16}
         ];
 
         // ── Fila 1: Banner con logo ──────────────────────────────
         ws.getRow(1).height = 34;
-        ws.mergeCells('A1:E1');
+        ws.mergeCells('A1:H1');
         const banner = ws.getCell('A1');
         banner.value     = '  Viridis Venetus  —  Reporte Diario de Movimientos';
         banner.fill      = xlFill(PALETTE.titleBg);
@@ -997,7 +997,7 @@
 
         // ── Fila 2: Subtítulo ────────────────────────────────────
         ws.getRow(2).height = 18;
-        ws.mergeCells('A2:E2');
+        ws.mergeCells('A2:H2');
         applyCell(ws.getCell('A2'),
             `   Generado: ${new Date().toLocaleString('es-MX')}   |   Período: ${periodoLabel}`,
             { fill: xlFill(PALETTE.rowB), font: xlFont(false, PALETTE.gray, 9),
@@ -1005,43 +1005,46 @@
 
         // ── Fila 3: Encabezado sección KPI ───────────────────────
         ws.getRow(3).height = 22;
-        ws.mergeCells('A3:E3');
+        ws.mergeCells('A3:H3');
         applyCell(ws.getCell('A3'), '  RESUMEN DE MOVIMIENTOS',
             { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt, 10),
               border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
 
         // ── Fila 4: KPI encabezados ──────────────────────────────
         ws.getRow(4).height = 20;
-        ['Total','Entradas','Salidas','Mermas'].forEach((h, i) => {
-            const col = ['A','B','C','D'][i];
+        ['Total','Entradas','Salidas','Mermas','Almacenes','Litros generales','Litros merma','Salida litros'].forEach((h, i) => {
+            const col = ['A','B','C','D','E','F','G','H'][i];
             applyCell(ws.getCell(`${col}4`), h,
                 { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
                   border: xlBorder(), alignment: xlCenter() });
         });
-        applyCell(ws.getCell('E4'), 'Almacenes',
-            { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
-              border: xlBorder(), alignment: xlCenter() });
 
         // ── Fila 5: KPI valores ──────────────────────────────────
         ws.getRow(5).height = 38;
-        const entradas = data.filter(m=>m.tipo==='ENTRADA').length;
-        const salidas  = data.filter(m=>m.tipo==='SALIDA').length;
-        const mermas   = data.filter(m=>m.tipo==='MERMA').length;
-        const almCount = new Set(data.map(m=>m.almacen)).size;
+        const entradas   = data.filter(m=>m.tipo==='ENTRADA').length;
+        const salidas    = data.filter(m=>m.tipo==='SALIDA').length;
+        const mermas     = data.filter(m=>m.tipo==='MERMA').length;
+        const almCount   = new Set(data.map(m=>m.almacen)).size;
+        const litL       = data.filter(m=>m.unidad==='L');
+        const litGen     = litL.reduce((s,m)=>s+Number(m.cantidad),0);
+        const litMerma   = litL.filter(m=>m.tipo==='MERMA').reduce((s,m)=>s+Number(m.cantidad),0);
+        const litSalida  = litL.filter(m=>m.tipo==='SALIDA').reduce((s,m)=>s+Number(m.cantidad),0);
+        const fmtLxl     = v => (v%1===0 ? v : parseFloat(v.toFixed(2))) + ' L';
 
         [[data.length, PALETTE.titleFt],[entradas, PALETTE.green],
-         [salidas, PALETTE.red],[mermas, PALETTE.amber],[almCount, PALETTE.titleFt]
+         [salidas, PALETTE.red],[mermas, PALETTE.amber],[almCount, PALETTE.titleFt],
+         [fmtLxl(litGen), '1A6CB8'],[fmtLxl(litMerma), PALETTE.amber],[fmtLxl(litSalida), PALETTE.red]
         ].forEach(([v, color], i) => {
-            const col = ['A','B','C','D','E'][i];
+            const col = ['A','B','C','D','E','F','G','H'][i];
             applyCell(ws.getCell(`${col}5`), v,
-                { fill: xlFill(PALETTE.rowB), font: xlFont(true, color, 22),
+                { fill: xlFill(PALETTE.rowB), font: xlFont(true, color, i>=5?16:22),
                   border: xlBorder(), alignment: xlCenter() });
         });
 
         // ── Fila 6: KPI etiquetas ────────────────────────────────
         ws.getRow(6).height = 16;
-        ['movimientos','entradas','salidas','mermas','almacenes activos'].forEach((lbl, i) => {
-            const col = ['A','B','C','D','E'][i];
+        ['movimientos','entradas','salidas','mermas','almacenes activos','todos los movimientos','mermas','salidas'].forEach((lbl, i) => {
+            const col = ['A','B','C','D','E','F','G','H'][i];
             applyCell(ws.getCell(`${col}6`), lbl,
                 { fill: xlFill(PALETTE.rowA), font: xlFont(false, PALETTE.gray, 9),
                   border: xlBorder(), alignment: xlCenter() });
@@ -1049,15 +1052,15 @@
 
         // ── Fila 7: Encabezado sección almacenes ─────────────────
         ws.getRow(7).height = 22;
-        ws.mergeCells('A7:E7');
+        ws.mergeCells('A7:H7');
         applyCell(ws.getCell('A7'), '  DESGLOSE POR ALMACÉN',
             { fill: xlFill(PALETTE.hdrBg), font: xlFont(true, PALETTE.hdrFt, 10),
               border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
 
         // ── Fila 8: Encabezados tabla ────────────────────────────
         ws.getRow(8).height = 20;
-        ['Almacén','Entradas','Salidas','Mermas','Total'].forEach((h, i) => {
-            const col = ['A','B','C','D','E'][i];
+        ['Almacén','Entradas','Salidas','Mermas','Total','','',''].forEach((h, i) => {
+            const col = ['A','B','C','D','E','F','G','H'][i];
             applyCell(ws.getCell(`${col}8`), h,
                 { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.titleFt, 10),
                   border: xlBorder(), alignment: xlCenter() });
@@ -1094,7 +1097,7 @@
             `TOTALES — ${Object.keys(almStats).length} almacenes`,
             { fill: xlFill(PALETTE.footerBg), font: xlFont(true, PALETTE.footerFt, 10),
               border: xlBorder(), alignment:{ horizontal:'left', vertical:'middle', indent:2 } });
-        ['D','E'].forEach(col => {
+        ['D','E','F','G','H'].forEach(col => {
             ws.getCell(`${col}${lastR}`).fill   = xlFill(PALETTE.footerBg);
             ws.getCell(`${col}${lastR}`).border = xlBorder();
         });
