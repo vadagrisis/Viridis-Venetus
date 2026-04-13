@@ -267,7 +267,11 @@
 
         let allProducts = [];
 
-        async function loadProducts() {
+        async function loadProducts(preserveFilters = false) {
+            const savedSearch  = preserveFilters ? document.getElementById('searchInput').value : '';
+            const savedStatus  = preserveFilters ? document.getElementById('filterStatus').value : '';
+            const savedAlmacen = preserveFilters ? document.getElementById('filterAlmacen').value : '';
+
             try {
                 const res = await fetchAPI(`${API}/productos`);
                 const text = await res.text();
@@ -284,8 +288,15 @@
                 }
                 allProducts = data;
                 renderKPIs(data);
-                renderTable(data);
                 populateAlmacenFilter(data);
+
+                if (preserveFilters) {
+                    document.getElementById('searchInput').value   = savedSearch;
+                    document.getElementById('filterStatus').value  = savedStatus;
+                    document.getElementById('filterAlmacen').value = savedAlmacen;
+                }
+
+                filterTable();
             } catch (e) {
                 document.getElementById('tableBody').innerHTML =
                     `<tr class="state-row"><td colspan="7"><span class="state-icon">⚠️</span>No se pudo conectar con la API.</td></tr>`;
@@ -328,7 +339,7 @@
                         <div class="col-actions">
                             <button class="action-btn" title="Entrada" onclick="quickMove(${p.id}, 'ENTRADA', '${p.almacen}')">⬆</button>
                             <button class="action-btn" title="Salida"  onclick="quickMove(${p.id}, 'SALIDA',  '${p.almacen}')">⬇</button>
-                            <button class="action-btn" title="Merma"  onclick="quickMove(${p.id}, 'MERMA',  '${p.almacen}')">⬇</button>
+                            <button class="action-btn" title="Merma"   onclick="quickMove(${p.id}, 'MERMA',   '${p.almacen}')">⚠</button>
                         </div>
                     </td>
                 </tr>`;
@@ -368,7 +379,7 @@
             const prods = allProducts.filter(p => (p.almacen || '—') === almacen);
             const sel   = document.getElementById('mProducto');
             sel.innerHTML = prods.map(p =>
-                `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.nombre}${p.stock !== undefined ? ' — stock: ' + p.stock : ''}</option>`
+                `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.nombre}${p.stock !== undefined && p.stock !== null ? ' — stock: ' + p.stock : ' — stock: 0'}</option>`
             ).join('');
         }
 
@@ -423,7 +434,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     closeModal();
-                    await loadProducts();
+                    await loadProducts(true);
                 } else {
                     errEl.textContent = data.msg || 'Error al registrar movimiento.';
                     errEl.classList.add('show');
