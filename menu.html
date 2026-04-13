@@ -25,12 +25,14 @@
         .page-greeting { text-align: center; margin-bottom: 60px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.1s ease forwards; }
         .page-greeting h1 { font-family: 'Playfair Display', serif; font-size: 38px; margin-bottom: 10px; }
         .page-greeting p { color: var(--gray); font-size: 15px; }
-        .menu-grid { display: grid; grid-template-columns: repeat(2, 280px); gap: 24px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(3, 280px); gap: 24px; }
         .menu-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 36px 32px; cursor: pointer; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; text-decoration: none; color: inherit; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s ease forwards; display: flex; flex-direction: column; gap: 16px; }
         .menu-card:nth-child(1) { animation-delay: 0.2s; }
         .menu-card:nth-child(2) { animation-delay: 0.3s; }
         .menu-card:nth-child(3) { animation-delay: 0.4s; }
         .menu-card:nth-child(4) { animation-delay: 0.5s; }
+        .menu-card:nth-child(5) { animation-delay: 0.6s; }
+        .menu-card:nth-child(6) { animation-delay: 0.7s; }
         .menu-card:hover { transform: translateY(-4px); border-color: rgba(0,200,150,0.4); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
         .menu-card:hover .card-icon { background: var(--accent); }
         .card-icon { width: 52px; height: 52px; border-radius: 14px; background: rgba(0,97,168,0.4); display: flex; align-items: center; justify-content: center; transition: background 0.2s; font-size: 24px; }
@@ -93,6 +95,12 @@
                 <div class="card-icon">📈</div>
                 <div class="card-title">Tendencias</div>
                 <div class="card-desc">Compara semanas y meses. Visualiza evolución de mermas y movimientos.</div>
+                <span class="card-arrow">→</span>
+            </a>
+            <a class="menu-card" href="referencia.html">
+                <div class="card-icon">🏷️</div>
+                <div class="card-title">Referencia</div>
+                <div class="card-desc">Registra y consulta referencias de productos por almacén y fecha.</div>
                 <span class="card-arrow">→</span>
             </a>
         </div>
@@ -162,4 +170,3 @@
     </script>
 </body>
 </html>
-
