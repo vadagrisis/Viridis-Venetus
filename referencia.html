@@ -41,9 +41,9 @@
         .kpi-sub { font-size: 12px; color: var(--gray); }
 
         /* Form card */
-        .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.15s ease forwards; }
+        .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin-bottom: 28px; opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s 0.15s ease forwards; overflow: visible; }
         .form-title { font-size: 15px; font-weight: 600; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr 2fr 1fr; gap: 18px; align-items: end; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 2fr 1fr; gap: 18px; align-items: end; overflow: visible; }
         .field { display: flex; flex-direction: column; gap: 8px; }
         .field label { font-size: 12px; font-weight: 500; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; }
         .field input, .field select, .field textarea {
@@ -95,12 +95,12 @@
         .state-icon { font-size: 36px; display: block; margin-bottom: 12px; }
 
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
-        .pt-search-wrap { position: relative; }
+        .pt-search-wrap { position: relative; z-index: 10; }
         .pt-search-input { width: 100%; padding: 11px 16px 11px 38px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; color: var(--white); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
         .pt-search-input:focus { border-color: var(--accent); }
         .pt-search-input::placeholder { color: var(--gray); }
         .pt-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 13px; pointer-events: none; }
-        .pt-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #1a2840; border: 1px solid var(--border); border-radius: 10px; max-height: 210px; overflow-y: auto; z-index: 300; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .pt-dropdown { position: fixed; background: #1a2840; border: 1px solid var(--border); border-radius: 10px; max-height: 220px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); min-width: 280px; }
         .pt-dropdown.open { display: block; }
         .pt-dropdown::-webkit-scrollbar { width: 4px; }
         .pt-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
@@ -343,13 +343,18 @@
         function onPTSearch() {
             _ptSelected = null;
             document.getElementById('fNombre').value = '';
-            renderPTDropdown(document.getElementById('fNombreSearch').value);
             openPTDropdown();
         }
 
         function openPTDropdown() {
             renderPTDropdown(document.getElementById('fNombreSearch').value);
-            document.getElementById('ptDropdown').classList.add('open');
+            const inp  = document.getElementById('fNombreSearch');
+            const rect = inp.getBoundingClientRect();
+            const dd   = document.getElementById('ptDropdown');
+            dd.style.top   = (rect.bottom + window.scrollY + 4) + 'px';
+            dd.style.left  = rect.left + 'px';
+            dd.style.width = rect.width + 'px';
+            dd.classList.add('open');
         }
 
         function closePTDropdown() {
