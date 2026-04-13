@@ -528,6 +528,25 @@
         </div>
     </div>
 
+    <!-- KPI Litros -->
+    <div class="kpi-grid" id="kpiLitrosGrid" style="grid-template-columns: repeat(3,1fr); margin-top: -12px; margin-bottom: 28px; opacity:0; transform:translateY(14px); animation:fadeUp 0.55s 0.22s cubic-bezier(.22,1,.36,1) forwards;">
+        <div class="kpi-card blue" style="--kpi-color:rgba(77,184,255,0.08);--kpi-text:#4db8ff;">
+            <div class="kpi-icon">💧</div>
+            <div class="kpi-value" id="kpiLitrosGen">—</div>
+            <div class="kpi-label">Litros generales</div>
+        </div>
+        <div class="kpi-card red" style="--kpi-color:rgba(240,91,91,0.08);--kpi-text:var(--red);">
+            <div class="kpi-icon">⚠</div>
+            <div class="kpi-value" id="kpiLitrosMerma">—</div>
+            <div class="kpi-label">Litros de merma</div>
+        </div>
+        <div class="kpi-card red" style="--kpi-color:rgba(240,91,91,0.08);--kpi-text:var(--red);">
+            <div class="kpi-icon">⬇</div>
+            <div class="kpi-value" id="kpiLitrosSalida">—</div>
+            <div class="kpi-label">Salida de litros</div>
+        </div>
+    </div>
+
     <!-- Charts -->
     <div class="charts-grid" id="chartsSection" style="display:none;">
         <div class="chart-card">
@@ -744,6 +763,14 @@
                 : id === 'kpiSalidas'  ? salidas
                 : mermas;
         });
+        ['kpiLitrosGen','kpiLitrosMerma','kpiLitrosSalida'].forEach(id => {
+            document.getElementById(id).textContent = '—';
+        });
+    }
+
+    function fmtL(val) {
+        if (val === 0) return '0 L';
+        return (val % 1 === 0 ? val : val.toFixed(2)) + ' L';
     }
 
     function updateKpi(data) {
@@ -755,6 +782,30 @@
         animateKpi('kpiEntradas', entradas);
         animateKpi('kpiSalidas',  salidas);
         animateKpi('kpiMermas',   mermas);
+
+        // ── Litros (unidad === 'L') ──────────────────────────────
+        const litros      = data.filter(m => m.unidad === 'L');
+        const litrosGen   = litros.reduce((s, m) => s + Number(m.cantidad), 0);
+        const litrosMerma = litros.filter(m => m.tipo === 'MERMA').reduce((s, m) => s + Number(m.cantidad), 0);
+        const litrosSal   = litros.filter(m => m.tipo === 'SALIDA').reduce((s, m) => s + Number(m.cantidad), 0);
+
+        animateLitros('kpiLitrosGen',   litrosGen);
+        animateLitros('kpiLitrosMerma', litrosMerma);
+        animateLitros('kpiLitrosSalida', litrosSal);
+    }
+
+    function animateLitros(id, target) {
+        const el    = document.getElementById(id);
+        const dur   = 700;
+        const fps   = 40;
+        const steps = Math.round(dur / (1000 / fps));
+        let step    = 0;
+        const timer = setInterval(() => {
+            step++;
+            const current = target * (step / steps);
+            el.textContent = (current % 1 === 0 ? Math.round(current) : current.toFixed(2)) + ' L';
+            if (step >= steps) { el.textContent = fmtL(target); clearInterval(timer); }
+        }, 1000 / fps);
     }
 
     function animateKpi(id, target) {
