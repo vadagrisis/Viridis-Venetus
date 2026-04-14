@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Viridis Venetus — Inventario</title>
@@ -86,7 +86,7 @@
         .state-icon { font-size: 36px; display: block; margin-bottom: 12px; }
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; }
         .modal-overlay.open { display: flex; }
-        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 440px; position: relative; animation: fadeUp 0.3s ease; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 40px; width: 100%; max-width: 780px; position: relative; animation: fadeUp 0.3s ease; }
         .modal-title { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 6px; }
         .modal-sub { color: var(--gray); font-size: 13px; margin-bottom: 32px; }
         .modal .field { margin-bottom: 20px; }
@@ -117,6 +117,24 @@
         .prod-option .prod-stock { font-size: 11px; color: var(--gray); }
         .prod-none { padding: 16px 14px; font-size: 13px; color: var(--gray); text-align: center; }
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+        .mov-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+        .mov-row { display: grid; grid-template-columns: 2fr 80px 90px auto; gap: 10px; align-items: end; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; position: relative; }
+        .mov-row .field { margin: 0; }
+        .mov-row .field label { font-size: 10px; }
+        .stock-preview { font-size: 12px; margin-top: 5px; padding: 4px 10px; border-radius: 8px; display: none; }
+        .stock-preview.entrada { background: rgba(0,200,150,0.12); color: #00c896; }
+        .stock-preview.salida  { background: rgba(255,91,91,0.12);  color: #ff5b5b; }
+        .stock-preview.merma   { background: rgba(245,200,66,0.12); color: #f5c842; }
+        .remove-row-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--gray); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; margin-bottom: 2px; }
+        .remove-row-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,91,91,0.08); }
+        .add-row-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; border: 1px dashed rgba(0,200,150,0.4); background: rgba(0,200,150,0.05); color: var(--accent); font-size: 13px; font-family: 'DM Sans',sans-serif; cursor: pointer; transition: all 0.2s; width: fit-content; }
+        .add-row-btn:hover { background: rgba(0,200,150,0.12); border-color: var(--accent); }
+        .mov-header-row { display: grid; grid-template-columns: 2fr 80px 90px auto; gap: 10px; padding: 0 16px; margin-bottom: 4px; }
+        .mov-header-row span { font-size: 10px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.7px; }
+        .tmuestra-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+        .tmuestra-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+        .tmuestra-row label { font-size: 13px; color: var(--gray); cursor: pointer; }
+        .mov-globals { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
         .tipo-toggle { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
         .tipo-btn { flex: 1; padding: 10px 0; border: none; background: transparent; color: var(--gray); font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s, color 0.2s; letter-spacing: 0.4px; }
         .tipo-btn.active-mp { background: rgba(0,200,150,0.18); color: #00c896; }
@@ -242,7 +260,7 @@
                 </select>
             </div>
             <div class="field">
-                <label>Número de lote/Referencia <span style="color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <label>Número de lote <span style="color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
                 <input type="text" id="npLote" maxlength="80" placeholder="Ej: LOT-2024-001">
             </div>
             <div class="modal-error" id="npError"></div>
@@ -257,42 +275,46 @@
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
         <div class="modal">
             <h2 class="modal-title">Registrar movimiento</h2>
-            <p class="modal-sub">Actualiza el stock de un producto</p>
-            <div class="field">
-                <label>Almacén</label>
-                <select id="mAlmacen" onchange="onAlmacenChange()"></select>
-            </div>
-            <div class="field">
-                <label>Producto</label>
-                <div class="prod-search-wrap" id="prodSearchWrap">
-                    <span class="prod-search-icon"></span>
-                    <input type="text" class="prod-search-input" id="mProductoSearch"
-                           placeholder="Buscar producto..." autocomplete="off"
-                           oninput="onProdSearch()" onfocus="openProdDropdown()" onblur="onProdBlur()">
-                    <div class="prod-dropdown" id="prodDropdown"></div>
+            <p class="modal-sub">Registra uno o varios productos al mismo tiempo</p>
+
+            <!-- Globales: almacén, tipo, lote, T.muestra -->
+            <div class="mov-globals">
+                <div class="field">
+                    <label>Almacén</label>
+                    <select id="mAlmacen" onchange="onAlmacenChange()"></select>
                 </div>
-                <input type="hidden" id="mProducto">
+                <div class="field">
+                    <label>Tipo</label>
+                    <select id="mTipo" onchange="updateAllPreviews()">
+                        <option value="ENTRADA">⬆ ENTRADA</option>
+                        <option value="SALIDA">⬇ SALIDA</option>
+                        <option value="MERMA">⚠ MERMA</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Lote <span style="color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                    <input type="text" id="mLote" maxlength="80" placeholder="Ej: LOT-2024-001">
+                </div>
             </div>
-            <div class="field">
-                <label>Tipo</label>
-                <select id="mTipo">
-                    <option value="ENTRADA">ENTRADA</option>
-                    <option value="SALIDA">SALIDA</option>
-                    <option value="MERMA">MERMA</option>
-                </select>
+
+            <!-- T.muestra checkbox -->
+            <div class="tmuestra-row">
+                <input type="checkbox" id="mTmuestra">
+                <label for="mTmuestra">T. muestra <span style="color:var(--gray);font-size:11px;">(opcional — marca si es toma de muestra)</span></label>
             </div>
-            <div class="field">
-                <label>Cantidad</label>
-                <input type="number" id="mCantidad" min="0.01" step="0.01" placeholder="0.00">
+
+            <!-- Columnas de productos -->
+            <div class="mov-header-row" style="margin-top:14px;">
+                <span>Producto</span><span>Cantidad</span><span>Stock actual</span><span></span>
             </div>
-            <div class="field">
-                <label>Número de lote/Referencia <span style="color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0;">(opcional)</span></label>
-                <input type="text" id="mLote" maxlength="80" placeholder="Ej: LOT-2024-001">
-            </div>
-            <div class="modal-error" id="modalError"></div>
-            <div class="modal-actions">
+            <div class="mov-rows" id="movRows"></div>
+
+            <button class="add-row-btn" onclick="addMovRow()">＋ Agregar otro producto</button>
+
+            <div class="modal-error" id="modalError" style="margin-top:14px;"></div>
+            <div class="modal-actions" style="margin-top:20px;">
                 <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-                <button class="btn-save"   id="btnSave" onclick="registrarMovimiento()">Guardar</button>
+                <button class="btn-save" id="btnSave" onclick="registrarMovimiento()">Guardar</button>
             </div>
         </div>
     </div>
@@ -511,28 +533,106 @@
             setTimeout(closeProdDropdown, 150);
         }
 
+        // ── Multi-row movement state ──────────────────────────────────
+        let _movRowCount = 0;
+
+        function addMovRow(presetId = null) {
+            const idx  = _movRowCount++;
+            const alm  = document.getElementById('mAlmacen').value;
+            const prods = allProducts.filter(p => (p.almacen || '—') === alm);
+            const opts  = '<option value="">— Selecciona —</option>' + prods.map(p =>
+                `<option value="${p.id}" data-stock="${p.stock ?? 0}">${p.nombre} (stock: ${p.stock ?? 0})</option>`
+            ).join('');
+
+            const row = document.createElement('div');
+            row.className = 'mov-row';
+            row.id = `movRow_${idx}`;
+            row.innerHTML = `
+                <div class="field">
+                    <label>Producto</label>
+                    <select id="rowProd_${idx}" onchange="updatePreview(${idx})"
+                        style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;color:var(--white);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22%3E%3Cpath d=%22M1 1l4 4 4-4%22 stroke=%22%238a9bb0%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 fill=%22none%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;">
+                        ${opts}
+                    </select>
+                    <div class="stock-preview" id="prev_${idx}"></div>
+                </div>
+                <div class="field">
+                    <label>Cantidad</label>
+                    <input type="number" id="rowQty_${idx}" min="0.01" step="0.01" placeholder="0.00"
+                        oninput="updatePreview(${idx})"
+                        style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;color:var(--white);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;">
+                </div>
+                <div class="field">
+                    <div id="stockBadge_${idx}" style="margin-top:20px;font-size:12px;color:var(--gray);padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid var(--border);min-width:70px;text-align:center;">—</div>
+                </div>
+                ${idx > 0 ? `<button class="remove-row-btn" onclick="removeMovRow(${idx})" title="Eliminar">✕</button>` : '<div></div>'}
+            `;
+            document.getElementById('movRows').appendChild(row);
+            if (presetId) {
+                const sel = document.getElementById(`rowProd_${idx}`);
+                if (sel) { sel.value = presetId; updatePreview(idx); }
+            }
+        }
+
+        function removeMovRow(idx) {
+            const row = document.getElementById(`movRow_${idx}`);
+            if (row) row.remove();
+        }
+
+        function updatePreview(idx) {
+            const sel   = document.getElementById(`rowProd_${idx}`);
+            const qtyEl = document.getElementById(`rowQty_${idx}`);
+            const prev  = document.getElementById(`prev_${idx}`);
+            const badge = document.getElementById(`stockBadge_${idx}`);
+            if (!sel || !qtyEl) return;
+            const qty  = parseFloat(qtyEl.value) || 0;
+            const tipo = document.getElementById('mTipo').value;
+            if (!sel.value) { if(prev) prev.style.display='none'; if(badge) badge.textContent='—'; return; }
+            const stock = parseFloat(sel.selectedOptions[0]?.dataset.stock) || 0;
+            if(badge) badge.textContent = stock;
+            if (!qty) { if(prev) prev.style.display='none'; return; }
+            const result = tipo === 'ENTRADA' ? stock + qty : stock - qty;
+            const cls    = tipo === 'ENTRADA' ? 'entrada' : tipo === 'SALIDA' ? 'salida' : 'merma';
+            const sign   = tipo === 'ENTRADA' ? `+${qty}` : `-${qty}`;
+            if(prev) {
+                prev.className = `stock-preview ${cls}`;
+                prev.style.display = 'block';
+                prev.textContent   = `${stock} ${sign} = ${result % 1 === 0 ? result : result.toFixed(2)}`;
+            }
+        }
+
+        function updateAllPreviews() {
+            document.querySelectorAll('[id^="rowProd_"]').forEach(el => {
+                const idx = parseInt(el.id.replace('rowProd_', ''));
+                updatePreview(idx);
+            });
+        }
+
         function onAlmacenChange() {
-            const alm = document.getElementById('mAlmacen').value;
-            populateProductoModal(alm);
+            const alm   = document.getElementById('mAlmacen').value;
+            const prods = allProducts.filter(p => (p.almacen || '—') === alm);
+            const opts  = '<option value="">— Selecciona —</option>' + prods.map(p =>
+                `<option value="${p.id}" data-stock="${p.stock ?? 0}">${p.nombre} (stock: ${p.stock ?? 0})</option>`
+            ).join('');
+            document.querySelectorAll('[id^="rowProd_"]').forEach(sel => {
+                const prev = sel.value;
+                sel.innerHTML = opts;
+                if ([...sel.options].some(o => o.value == prev)) sel.value = prev;
+            });
+            updateAllPreviews();
         }
 
         function openModal(id = null, tipo = null, almacen = null) {
             document.getElementById('modalOverlay').classList.add('open');
             document.getElementById('modalError').classList.remove('show');
-            document.getElementById('mCantidad').value       = '';
-            document.getElementById('mLote').value          = '';
-            document.getElementById('mProductoSearch').value = '';
-            document.getElementById('mProducto').value       = '';
-            closeProdDropdown();
-
-            // Populate almacén selector
+            document.getElementById('mLote').value = '';
+            document.getElementById('mTmuestra').checked = false;
+            document.getElementById('movRows').innerHTML = '';
+            _movRowCount = 0;
             const defaultAlm = almacen || [...new Set(allProducts.map(p => p.almacen || '—'))].sort()[0];
             populateAlmacenModal(defaultAlm);
-
-            // Populate products filtered by almacén
-            populateProductoModal(defaultAlm, id);
-
             if (tipo) document.getElementById('mTipo').value = tipo;
+            addMovRow(id);
         }
 
         function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
@@ -540,47 +640,49 @@
         function quickMove(id, tipo, almacen) { openModal(id, tipo, almacen); }
 
         async function registrarMovimiento() {
-            const id_producto = parseInt(document.getElementById('mProducto').value);
-            if (!id_producto) {
-                errEl.textContent = 'Selecciona un producto de la lista.';
-                errEl.classList.add('show');
-                return;
-            }
-            const tipo        = document.getElementById('mTipo').value;
-            const cantidad    = parseFloat(document.getElementById('mCantidad').value);
-            const lote        = document.getElementById('mLote').value.trim();
-            const almacen     = document.getElementById('mAlmacen').value;
-            const errEl       = document.getElementById('modalError');
-            const btn         = document.getElementById('btnSave');
+            const tipo     = document.getElementById('mTipo').value;
+            const lote     = document.getElementById('mLote').value.trim();
+            const almacen  = document.getElementById('mAlmacen').value;
+            const tmuestra = document.getElementById('mTmuestra').checked;
+            const errEl    = document.getElementById('modalError');
+            const btn      = document.getElementById('btnSave');
             errEl.classList.remove('show');
-            if (!cantidad || cantidad <= 0) {
-                errEl.textContent = 'Ingresa una cantidad válida mayor a 0.';
-                errEl.classList.add('show');
-                return;
+
+            const rows = [];
+            document.querySelectorAll('[id^="movRow_"]').forEach(row => {
+                const idx  = row.id.replace('movRow_', '');
+                const prod = document.getElementById(`rowProd_${idx}`)?.value;
+                const qty  = parseFloat(document.getElementById(`rowQty_${idx}`)?.value);
+                if (prod && qty > 0) rows.push({ id_producto: parseInt(prod), cantidad: qty });
+            });
+
+            if (!rows.length) {
+                errEl.textContent = 'Agrega al menos un producto con cantidad mayor a 0.';
+                errEl.classList.add('show'); return;
             }
+
             btn.disabled = true;
-            btn.textContent = 'Guardando...';
-            try {
-                const body = { id_producto, tipo, cantidad, almacen };
-                if (lote) body.lote = lote;
-                const res  = await fetchAPI(`${API}/registrar_movimiento`, {
-                    method: 'POST',
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    closeModal();
-                    await loadProducts(true);
-                } else {
-                    errEl.textContent = data.msg || 'Error al registrar movimiento.';
-                    errEl.classList.add('show');
-                }
-            } catch {
-                errEl.textContent = 'Error de conexión.';
+            btn.textContent = rows.length > 1 ? `Guardando ${rows.length}...` : 'Guardando...';
+            const errors = [];
+            for (const r of rows) {
+                try {
+                    const body = { id_producto: r.id_producto, tipo, cantidad: r.cantidad, almacen };
+                    if (lote)     body.lote     = lote;
+                    if (tmuestra) body.tmuestra = true;
+                    const res  = await fetchAPI(`${API}/registrar_movimiento`, {
+                        method: 'POST', body: JSON.stringify(body)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) errors.push(data.msg || 'Error');
+                } catch { errors.push('Error de conexión'); }
+            }
+            btn.disabled = false; btn.textContent = 'Guardar';
+            if (errors.length) {
+                errEl.textContent = errors.join(' | ');
                 errEl.classList.add('show');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Guardar';
+            } else {
+                closeModal();
+                await loadProducts(true);
             }
         }
 
