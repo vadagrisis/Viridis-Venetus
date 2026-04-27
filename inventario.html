@@ -537,23 +537,25 @@
         let _movRowCount = 0;
 
         function addMovRow(presetId = null) {
-            const idx  = _movRowCount++;
-            const alm  = document.getElementById('mAlmacen').value;
-            const prods = allProducts.filter(p => (p.almacen || '—') === alm);
-            const opts  = '<option value="">— Selecciona —</option>' + prods.map(p =>
-                `<option value="${p.id}" data-stock="${p.stock ?? 0}">${p.nombre} (stock: ${p.stock ?? 0})</option>`
-            ).join('');
-
+            const idx = _movRowCount++;
             const row = document.createElement('div');
             row.className = 'mov-row';
             row.id = `movRow_${idx}`;
             row.innerHTML = `
-                <div class="field">
+                <div class="field" style="position:relative;">
                     <label>Producto</label>
-                    <select id="rowProd_${idx}" onchange="updatePreview(${idx})"
-                        style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;color:var(--white);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22%3E%3Cpath d=%22M1 1l4 4 4-4%22 stroke=%22%238a9bb0%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 fill=%22none%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;">
-                        ${opts}
-                    </select>
+                    <input type="hidden" id="rowProd_${idx}" data-stock="">
+                    <div class="prod-search-wrap">
+                        <span class="prod-search-icon">🔍</span>
+                        <input class="prod-search-input" id="rowSearch_${idx}"
+                            placeholder="Buscar producto..."
+                            oninput="onRowSearch(${idx})"
+                            onfocus="openRowDropdown(${idx})"
+                            onblur="onRowBlur(${idx})"
+                            autocomplete="off"
+                            style="font-size:13px;padding:10px 14px 10px 34px;">
+                        <div class="prod-dropdown" id="rowDropdown_${idx}"></div>
+                    </div>
                     <div class="stock-preview" id="prev_${idx}"></div>
                 </div>
                 <div class="field">
@@ -569,9 +571,63 @@
             `;
             document.getElementById('movRows').appendChild(row);
             if (presetId) {
-                const sel = document.getElementById(`rowProd_${idx}`);
-                if (sel) { sel.value = presetId; updatePreview(idx); }
+                const p = allProducts.find(p => p.id === presetId);
+                if (p) selectRowProd(idx, p);
             }
+        }
+
+        /* ── Per-row product search helpers ── */
+        function renderRowDropdown(idx, q) {
+            const alm   = document.getElementById('mAlmacen').value;
+            const prods = allProducts.filter(p => (p.almacen || '—') === alm);
+            const dd    = document.getElementById(`rowDropdown_${idx}`);
+            if (!dd) return;
+            const filtered = q
+                ? prods.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()))
+                : prods;
+            const selId = parseInt(document.getElementById(`rowProd_${idx}`)?.value) || null;
+            if (!filtered.length) {
+                dd.innerHTML = `<div class="prod-none">Sin resultados</div>`;
+            } else {
+                dd.innerHTML = filtered.map(p => {
+                    const stock = p.stock ?? 0;
+                    return `<div class="prod-option${selId === p.id ? ' active' : ''}"
+                        onmousedown="selectRowProd(${idx},{id:${p.id},nombre:'${p.nombre.replace(/'/g,"\\'")}',stock:${stock}})">
+                        <span>${p.nombre}</span>
+                        <span class="prod-stock">stock: ${stock}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function openRowDropdown(idx) {
+            renderRowDropdown(idx, document.getElementById(`rowSearch_${idx}`)?.value || '');
+            document.getElementById(`rowDropdown_${idx}`)?.classList.add('open');
+        }
+
+        function closeRowDropdown(idx) {
+            document.getElementById(`rowDropdown_${idx}`)?.classList.remove('open');
+        }
+
+        function onRowSearch(idx) {
+            const hidden = document.getElementById(`rowProd_${idx}`);
+            if (hidden) { hidden.value = ''; hidden.dataset.stock = ''; }
+            renderRowDropdown(idx, document.getElementById(`rowSearch_${idx}`).value);
+            openRowDropdown(idx);
+            updatePreview(idx);
+        }
+
+        function onRowBlur(idx) {
+            setTimeout(() => closeRowDropdown(idx), 150);
+        }
+
+        function selectRowProd(idx, p) {
+            const hidden = document.getElementById(`rowProd_${idx}`);
+            if (hidden) { hidden.value = p.id; hidden.dataset.stock = p.stock ?? 0; }
+            const searchEl = document.getElementById(`rowSearch_${idx}`);
+            if (searchEl) searchEl.value = p.nombre;
+            closeRowDropdown(idx);
+            updatePreview(idx);
         }
 
         function removeMovRow(idx) {
@@ -580,15 +636,15 @@
         }
 
         function updatePreview(idx) {
-            const sel   = document.getElementById(`rowProd_${idx}`);
-            const qtyEl = document.getElementById(`rowQty_${idx}`);
-            const prev  = document.getElementById(`prev_${idx}`);
-            const badge = document.getElementById(`stockBadge_${idx}`);
-            if (!sel || !qtyEl) return;
+            const hidden = document.getElementById(`rowProd_${idx}`);
+            const qtyEl  = document.getElementById(`rowQty_${idx}`);
+            const prev   = document.getElementById(`prev_${idx}`);
+            const badge  = document.getElementById(`stockBadge_${idx}`);
+            if (!hidden || !qtyEl) return;
             const qty  = parseFloat(qtyEl.value) || 0;
             const tipo = document.getElementById('mTipo').value;
-            if (!sel.value) { if(prev) prev.style.display='none'; if(badge) badge.textContent='—'; return; }
-            const stock = parseFloat(sel.selectedOptions[0]?.dataset.stock) || 0;
+            if (!hidden.value) { if(prev) prev.style.display='none'; if(badge) badge.textContent='—'; return; }
+            const stock = parseFloat(hidden.dataset.stock) || 0;
             if(badge) badge.textContent = stock;
             if (!qty) { if(prev) prev.style.display='none'; return; }
             const result = tipo === 'ENTRADA' ? stock + qty : stock - qty;
@@ -609,17 +665,14 @@
         }
 
         function onAlmacenChange() {
-            const alm   = document.getElementById('mAlmacen').value;
-            const prods = allProducts.filter(p => (p.almacen || '—') === alm);
-            const opts  = '<option value="">— Selecciona —</option>' + prods.map(p =>
-                `<option value="${p.id}" data-stock="${p.stock ?? 0}">${p.nombre} (stock: ${p.stock ?? 0})</option>`
-            ).join('');
-            document.querySelectorAll('[id^="rowProd_"]').forEach(sel => {
-                const prev = sel.value;
-                sel.innerHTML = opts;
-                if ([...sel.options].some(o => o.value == prev)) sel.value = prev;
+            document.querySelectorAll('[id^="rowProd_"]').forEach(el => {
+                const idx = el.id.replace('rowProd_', '');
+                el.value = '';
+                el.dataset.stock = '';
+                const searchEl = document.getElementById(`rowSearch_${idx}`);
+                if (searchEl) searchEl.value = '';
+                updatePreview(idx);
             });
-            updateAllPreviews();
         }
 
         function openModal(id = null, tipo = null, almacen = null) {
